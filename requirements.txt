@@ -1,0 +1,9 @@
+jellyfish==0.6.1
+numpy==1.15.4
+pandas==0.23.4
+python-dateutil==2.7.5
+pytz==2018.7
+recordlinkage==0.12
+scikit-learn==0.20.1
+scipy==1.1.0
+six==1.11.0

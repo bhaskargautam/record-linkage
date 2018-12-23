@@ -67,7 +67,7 @@ def main():
     features = compare_cl.compute(candidate_links, dataA, dataB)
     print "Features ", features.describe()
 
-    # Train Logistic Regression Classifier
+    # Train K-Means Classifier
     logrg = recordlinkage.KMeansClassifier()
     logrg.fit(features)
 
