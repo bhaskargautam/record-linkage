@@ -1,1 +1,1 @@
-CORA_XML_PATH = 'cora/CORA.xml'
+CORA_XML_PATH = 'data/CORA.xml'

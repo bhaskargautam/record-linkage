@@ -1,11 +1,12 @@
-import xml.etree.ElementTree
-import pandas as pd
-import re
-import random
-from common import get_logger
 import config
-import recordlinkage
+import pandas as pd
 import random
+import re
+import recordlinkage
+import xml.etree.ElementTree
+
+from common import get_logger
+
 
 logger = get_logger('CORA')
 
@@ -127,3 +128,6 @@ class Cora(object):
         compare_cl.string('address', 'address', method='jarowinkler', threshold=0.85, label='address')
 
         return compare_cl
+
+    def get_er_model(self):
+        return None
