@@ -1,0 +1,1 @@
+CORA_XML_PATH = 'cora/CORA.xml'
