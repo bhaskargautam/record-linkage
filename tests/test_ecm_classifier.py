@@ -11,6 +11,7 @@ import xml.etree.ElementTree
 from common import get_logger, log_quality_results
 from data.cora import Cora
 from data.febrl import FEBRL
+from data.census import Census
 
 logger = get_logger('TestECMClassifier')
 
@@ -62,3 +63,26 @@ class TestECMClassifier(unittest.TestCase):
 
         result = logrg.predict(features)
         log_quality_results(logger, result, febrl.true_test_links, len(febrl.test_links))
+
+    @unittest.skip("Throws ValueError")
+    def test_census(self):
+        census = Census()
+
+        compare_cl = census.get_comparision_object()
+        features = compare_cl.compute(census.candidate_links, census.trainDataA, census.trainDataB)
+        logger.info("Features %s", str(features.describe()))
+
+        # Train ECM Classifier
+        logrg = recordlinkage.ECMClassifier()
+        logrg.fit(features)
+
+        result = logrg.predict(features)
+        log_quality_results(logger, result, census.true_links, len(census.candidate_links))
+
+        #Test the classifier
+        compare_cl = census.get_comparision_object()
+        features = compare_cl.compute(census.test_links, census.testDataA, census.testDataB)
+        logger.info("Features %s", str(features.describe()))
+
+        result = logrg.predict(features)
+        log_quality_results(logger, result, census.true_test_links, len(census.test_links))
