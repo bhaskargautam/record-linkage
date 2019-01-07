@@ -1,4 +1,5 @@
 import config
+import numpy as np
 import pandas as pd
 import random
 import re
@@ -7,11 +8,11 @@ import xml.etree.ElementTree
 
 from common import get_logger
 
-
 logger = get_logger('CORA')
 
 class Cora(object):
     """Class to read Cora Dataset"""
+    data = None
     trainDataA = None
     trainDataB = None
     testDataA = None
@@ -26,16 +27,16 @@ class Cora(object):
         logger.info("Sample Record from CORA dataset: ")
         logger.info(xml.etree.ElementTree.tostring(e.find('NEWREFERENCE')))
 
-        data = {}
+        self.data = {}
         for record in e.findall('NEWREFERENCE'):
             dni = re.search('[a-z]+[0-9]+[a-z]*', record.text)
             dni = re.search('[a-z]+', record.text) if not dni else dni
             dni = dni.group() if dni else record.text
 
-            if dni in data:
-                data[dni].append(record)
+            if dni in self.data:
+                self.data[dni].append(record)
             else:
-                data[dni] = [record]
+                self.data[dni] = [record]
 
         dataA = []
         dataB = []
@@ -43,31 +44,31 @@ class Cora(object):
         testB = []
         count = 116 #Np = Number of True Links
         #Divide duplicate pairs to each dataset
-        for dni in data:
-            if len(data[dni]) > 1:
+        for dni in self.data:
+            if len(self.data[dni]) > 1:
                 if count > 0:
-                    dataA.append(data[dni][0])
-                    dataB.append(data[dni][1])
+                    dataA.append(self.data[dni][0])
+                    dataB.append(self.data[dni][1])
                     count = count - 1
                 else:
-                    testA.append(data[dni][0])
-                    testB.append(data[dni][1])
+                    testA.append(self.data[dni][0])
+                    testB.append(self.data[dni][1])
 
         #Add noise enities to both dataset which are not linked.
-        for dni in data:
-            if len(data[dni]) == 1:
+        for dni in self.data:
+            if len(self.data[dni]) == 1:
                 if len(dataA) < 145: #and random.randint(0,1):
-                    dataA.append(data[dni][0])
+                    dataA.append(self.data[dni][0])
                 elif len(dataB) < 143:
-                    dataB.append(data[dni][0])
+                    dataB.append(self.data[dni][0])
                 elif random.randint(0, 1):
-                    testA.append(data[dni][0])
+                    testA.append(self.data[dni][0])
                 else:
-                    testB.append(data[dni][0])
+                    testB.append(self.data[dni][0])
 
         logger.info("Size of Dataset A %d and B  %d", len(dataA), len(dataB))
         df_a = df_b = tdf_a = tdf_b = {  'dni' : [], 'author' : [], 'publisher' : [], 'date' : [],
-                'title' : [], 'journal' : [], 'volume' : [], 'pages' : [], 'address' : []}
+                'title' : [], 'journal' : [], 'volume' : [], 'pages' : [], 'address' : [], 'id' : []}
         for (df, dataset) in [(df_a, dataA), (df_b, dataB), (tdf_a, testA), (tdf_b, testB)]:
             for record in dataset:
                 dni = re.search('[a-z]+[0-9]+[a-z]*', record.text)
@@ -81,6 +82,7 @@ class Cora(object):
                 df['volume'].append(unicode(record.find('volume').text if record.find('volume') is not None else ''))
                 df['pages'].append(unicode(record.find('pages').text if record.find('pages') is not None else ''))
                 df['address'].append(unicode(record.find('address').text if record.find('address') is not None else ''))
+                df['id'].append(record.get('id'))
 
         self.trainDataA = pd.DataFrame(data=df_a)
         self.trainDataB = pd.DataFrame(data=df_b)
@@ -130,4 +132,100 @@ class Cora(object):
         return compare_cl
 
     def get_er_model(self):
-        return None
+        entity = []
+        relation = []
+        triples = []
+        dni_mapping = {}
+        enitity_id_mapping = {}
+
+        for dni in self.data:
+            for record in self.data[dni]:
+                entity.append("cora" + str(record.get("id")))
+                entity_id = len(entity) - 1;
+                enitity_id_mapping[str(record.get("id"))] = entity_id
+
+                dni_mapping[str(entity_id)] = dni
+                xeid = xml.etree.ElementTree.Element("entity_id")
+                xeid.text = str(entity_id)
+                record.insert(1, xeid)
+
+                for rel in record._children:
+                    if rel.tag in ['Pages', 'booktile', 'month', 'entity_id']:
+                        continue #These Releation only appear once, so skip.
+
+                    if rel.tag in relation:
+                        relation_id = relation.index(rel.tag)
+                    else:
+                        relation.append(rel.tag)
+                        relation_id = len(relation) - 1
+
+                    value = None
+                    if not rel.text:
+                        continue
+                    else:
+                        value = unicode(rel.text.strip())
+                        value = value.replace('(', '')
+                        value = value.replace(')', '')
+                        value = value.replace(';', '')
+                        if rel.tag in ['date', 'year']:
+                            value = value.replace('.', '')
+                            value = value.replace(',', '')
+                        elif rel.tag == 'pages':
+                            m = re.search('[0-9\-]+', value)
+                            if m:
+                                value = m.group()
+                            else:
+                                continue
+                        value = value.lower()
+
+                    if rel.tag == 'author':
+                        #KG2: separate enitity for each author
+                        authors = re.split(',|and|&', value)
+
+                        for author_name in authors:
+                            author_name = author_name.strip()
+                            if len(author_name) < 4:
+                                continue
+                            if author_name in entity:
+                                author_id = entity.index(author_name)
+                            else:
+                                entity.append(author_name)
+                                author_id = len(entity) - 1
+                            triples.append((entity_id, author_id, relation_id))
+                    elif value in entity:
+                        value_id = entity.index(value)
+                        triples.append((entity_id, value_id, relation_id))
+                    else:
+                        entity.append(value)
+                        value_id = len(entity) - 1;
+                        triples.append((entity_id, value_id, relation_id))
+
+        #Add new relation for aligned pairs
+        relation.append('aligned_pairs')
+        alligned_relation_id = len(relation) - 1
+
+        logger.info("Number of entities: %d", len(entity))
+        logger.info("Number of relations: %d", len(relation))
+        logger.info("Number of Triples: %d", len(triples))
+
+        logger.info("Sample Entities: %s", str(entity[:10]))
+        logger.info("All Relations: %s", str(relation))
+        logger.info("Sample Triples: %s", str(triples[:10]))
+
+        #Extract candidate links and true links
+
+        entity_pairs = []
+        true_pairs = []
+        for a in self.trainDataA['id']:#.append(self.testDataA['id']):
+            a_id = enitity_id_mapping[str(a)]
+            for b in self.trainDataB['id']:#.append(self.testDataB['id']):
+                b_id = enitity_id_mapping[str(b)]
+                entity_pairs.append((a_id,b_id))
+                if dni_mapping[str(a_id)] == dni_mapping[str(b_id)]:
+                    true_pairs.append((a_id,b_id))
+
+        logger.info("Number of entity pairs: %d", len(entity_pairs))
+        logger.info("Number of true pairs: %d", len(true_pairs))
+
+        true_pairs = pd.MultiIndex.from_tuples(true_pairs)
+        return (entity, relation, triples, entity_pairs, true_pairs)

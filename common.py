@@ -1,4 +1,5 @@
 import logging
+import numpy as np
 import recordlinkage
 
 def get_logger(name):
@@ -19,3 +20,6 @@ def log_quality_results(logger, result, true_links, total_pairs):
         logger.info("Recall: %f", recordlinkage.recall(true_links, result))
     except ZeroDivisionError:
         logger.error("ZeroDivisionError!!")
+
+def sigmoid(x):
+    return 1.0 / (1 + np.exp(-x))
