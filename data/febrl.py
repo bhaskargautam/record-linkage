@@ -62,3 +62,75 @@ class FEBRL(object):
         compare_cl.exact('date_of_birth', 'date_of_birth', label='date_of_birth')
         compare_cl.exact('state', 'state', label='state')
         return compare_cl
+
+    def get_er_model(self):
+        entity = []
+        relation = ['name', 'surname', 'state', 'dob', 'postcode', 'aligned_pairs']
+        triples = []
+
+        #Build Knowledge Graph
+        dataA = {}
+        dataB = {}
+        for (dataset, data) in [(self.trainDataA, dataA), (self.trainDataB, dataB)]:
+            #Also include test data (self.testDataA, dataA), (self.testDataB, dataB)]:
+
+            for record in dataset.iterrows():
+                #new entity for each record
+                entity.append(record[0])
+                entity_id = len(entity) - 1
+                data[str(record[0])] = entity_id
+
+                if record[1]['given_name'] in entity:
+                    name_id = entity.index(record[1]['given_name'])
+                else:
+                    entity.append(record[1]['given_name'])
+                    name_id = len(entity) - 1
+
+                if record[1]['surname'] in entity:
+                    surname_id = entity.index(record[1]['surname'])
+                else:
+                    entity.append(record[1]['surname'])
+                    surname_id = len(entity) - 1
+
+                if record[1]['state'] in entity:
+                    state_id = entity.index(record[1]['state'])
+                else:
+                    entity.append(record[1]['state'])
+                    state_id = len(entity) - 1
+
+                if record[1]['date_of_birth'] in entity:
+                    dob_id = entity.index(record[1]['date_of_birth'])
+                else:
+                    entity.append(record[1]['date_of_birth'])
+                    dob_id = len(entity) - 1
+
+                if record[1]['postcode'] in entity:
+                    postcode_id = entity.index(record[1]['postcode'])
+                else:
+                    entity.append(record[1]['postcode'])
+                    postcode_id = len(entity) - 1
+
+                triples.append((entity_id, name_id, 0))
+                triples.append((entity_id, surname_id, 1))
+                triples.append((entity_id, state_id, 2))
+                triples.append((entity_id, dob_id, 3))
+                triples.append((entity_id, postcode_id, 4))
+
+        logger.info("Number of entities: %d", len(entity))
+        logger.info("All relations: %s", str(relation))
+        logger.info("Number of Triples: %d", len(triples))
+
+        entity_pairs = []
+        true_pairs = []
+        #Todo: Use blocking indexing to reduce entity pairs.
+        for a in dataA:
+            for b in dataB:
+                entity_pairs.append((dataA[a], dataB[b]))
+                if a.split('-')[1] == b.split('-')[1]:
+                    true_pairs.append((dataA[a], dataB[b]))
+
+        logger.info("Number of entity pairs: %d", len(entity_pairs))
+        logger.info("Number of true pairs: %d", len(true_pairs))
+
+        true_pairs = pd.MultiIndex.from_tuples(true_pairs)
+        return (entity, relation, triples, entity_pairs, true_pairs)
