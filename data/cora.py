@@ -117,6 +117,11 @@ class Cora(object):
         logger.info("Number of true links: %d", len(true_test_links))
         self.true_test_links = pd.MultiIndex.from_tuples(true_test_links)
 
+        #Initialize internal dictionaries
+        self.dni_mapping = {}
+        self.enitity_id_mapping = {}
+
+
     def get_comparision_object(self):
         compare_cl = recordlinkage.Compare()
 
@@ -131,20 +136,22 @@ class Cora(object):
 
         return compare_cl
 
-    def get_er_model(self):
+    def get_er_model(self, trainData):
         entity = []
         relation = []
         triples = []
-        dni_mapping = {}
-        enitity_id_mapping = {}
 
         for dni in self.data:
             for record in self.data[dni]:
+                #skip record if not part of selected training Data
+                if(not any(trainData['id'] == str(record.get("id")))):
+                    continue
+
                 entity.append("cora" + str(record.get("id")))
                 entity_id = len(entity) - 1;
-                enitity_id_mapping[str(record.get("id"))] = entity_id
+                self.enitity_id_mapping[str(record.get("id"))] = entity_id
 
-                dni_mapping[str(entity_id)] = dni
+                self.dni_mapping[str(entity_id)] = dni
                 xeid = xml.etree.ElementTree.Element("entity_id")
                 xeid.text = str(entity_id)
                 record.insert(1, xeid)
@@ -212,8 +219,8 @@ class Cora(object):
         logger.info("All Relations: %s", str(relation))
         logger.info("Sample Triples: %s", str(triples[:10]))
 
+        """
         #Extract candidate links and true links
-
         entity_pairs = []
         true_pairs = []
         for a in self.trainDataA['id']:#.append(self.testDataA['id']):
@@ -229,3 +236,24 @@ class Cora(object):
 
         true_pairs = pd.MultiIndex.from_tuples(true_pairs)
         return (entity, relation, triples, entity_pairs, true_pairs)
+        """
+        return (entity, relation, triples)
+
+    def get_entity_pairs(self):
+        #Extract candidate links and true links
+
+        entity_pairs = []
+        true_pairs = []
+        for a in self.trainDataA['id']:#.append(self.testDataA['id']):
+            a_id = self.enitity_id_mapping[str(a)]
+            for b in self.trainDataB['id']:#.append(self.testDataB['id']):
+                b_id = self.enitity_id_mapping[str(b)]
+                entity_pairs.append((a_id,b_id))
+                if self.dni_mapping[str(a_id)] == self.dni_mapping[str(b_id)]:
+                    true_pairs.append((a_id,b_id))
+
+        logger.info("Number of entity pairs: %d", len(entity_pairs))
+        logger.info("Number of true pairs: %d", len(true_pairs))
+
+        true_pairs = pd.MultiIndex.from_tuples(true_pairs)
+        return (entity_pairs, true_pairs)
