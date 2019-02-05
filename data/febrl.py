@@ -139,12 +139,82 @@ class FEBRL(object):
 
     def get_ear_model(self):
         entity = []
-        attribute = []
-        relation = []
+        attribute = ['name', 'surname', 'state', 'dob', 'postcode']
+        attr_value = []
+        relation = ['aligned_pairs']
         atriples = []
         rtriples = []
 
-        return (entity, attribute, relation, atriples, rtriples)
+        dataA = {}
+        dataB = {}
+        given_name_dict = {}
+        for (dataset, data) in [(self.trainDataA, dataA), (self.trainDataB, dataB)]:
+            #Also include test data (self.testDataA, dataA), (self.testDataB, dataB)]:
+
+            for record in dataset.iterrows():
+                #new entity for each record
+                entity.append(record[0])
+                entity_id = len(entity) - 1
+                data[str(record[0])] = entity_id
+                given_name_dict[str(record[0])] = record[1]['given_name']
+
+                if record[1]['given_name'] in attr_value:
+                    name_id = attr_value.index(record[1]['given_name'])
+                else:
+                    attr_value.append(record[1]['given_name'])
+                    name_id = len(attr_value) - 1
+
+                if record[1]['surname'] in attr_value:
+                    surname_id = attr_value.index(record[1]['surname'])
+                else:
+                    attr_value.append(record[1]['surname'])
+                    surname_id = len(attr_value) - 1
+
+                if record[1]['state'] in attr_value:
+                    state_id = attr_value.index(record[1]['state'])
+                else:
+                    attr_value.append(record[1]['state'])
+                    state_id = len(attr_value) - 1
+
+                if record[1]['date_of_birth'] in attr_value:
+                    dob_id = attr_value.index(record[1]['date_of_birth'])
+                else:
+                    attr_value.append(record[1]['date_of_birth'])
+                    dob_id = len(attr_value) - 1
+
+                if record[1]['postcode'] in attr_value:
+                    postcode_id = attr_value.index(record[1]['postcode'])
+                else:
+                    attr_value.append(record[1]['postcode'])
+                    postcode_id = len(attr_value) - 1
+
+                atriples.append((entity_id, name_id, 0))
+                atriples.append((entity_id, surname_id, 1))
+                atriples.append((entity_id, state_id, 2))
+                atriples.append((entity_id, dob_id, 3))
+                atriples.append((entity_id, postcode_id, 4))
+
+        logger.info("Number of entities: %d", len(entity))
+        logger.info("Number of values: %d", len(attr_value))
+        logger.info("Number of attributes: %d", len(attribute))
+        logger.info("Number of relations: %d", len(relation))
+        logger.info("Number of Attributional Triples: %d", len(atriples))
+        logger.info("Number of Relational Triples: %d", len(rtriples))
+
+        entity_pairs = []
+        true_pairs = []
+        for a in dataA:
+            for b in dataB:
+                if given_name_dict[a] == given_name_dict[b]:
+                    entity_pairs.append((dataA[a], dataB[b]))
+                    if a.split('-')[1] == b.split('-')[1]:
+                        true_pairs.append((dataA[a], dataB[b]))
+
+        logger.info("Number of entity pairs: %d", len(entity_pairs))
+        logger.info("Number of true pairs: %d", len(true_pairs))
+
+        true_pairs = pd.MultiIndex.from_tuples(true_pairs)
+        return (entity, attribute, relation, attr_value, atriples, rtriples, entity_pairs, true_pairs)
 
     def __str__(self):
         return 'FEBRL'

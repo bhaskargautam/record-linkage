@@ -200,12 +200,132 @@ class Census(object):
 
     def get_ear_model(self):
         entity = []
-        attribute = []
+        attribute = ["name", "surname", "surname2", "yob", "civil", "occupation"]
         relation = []
         atriples = []
         rtriples = []
+        attr_value = []
+        dni_mapping = {}
+        surname_mapping = {}
+        data_1940 = []
+        data_1936 = []
 
-        return (entity, attribute, relation, atriples, rtriples)
+        for (dataset, data) in [(self.trainDataA, data_1940), (self.trainDataB, data_1936)]:
+            for record in dataset.iterrows():
+                record = record[1]
+
+                #new entity for each record
+                entity.append(record[1])
+                individual_id = len(entity) - 1
+
+                #entity for each household
+                if record[2] in entity:
+                    household_id = entity.index(record[2])
+                else:
+                    entity.append(record[2])
+                    household_id = len(entity) - 1
+
+                #populate dicticnaries for DNI and Surname
+                dni_mapping[individual_id] = record[3]
+                surname_mapping[individual_id] = record[12]
+                data.append(individual_id)
+
+                #Value for Normalized Name
+                if record[10] in attr_value:
+                    name_id = attr_value.index(record[10])
+                else:
+                    attr_value.append(record[10])
+                    name_id = len(attr_value) - 1
+
+                #Value for Normalized Surname
+                if record[11] in attr_value:
+                    surname_id = attr_value.index(record[11])
+                else:
+                    attr_value.append(record[11])
+                    surname_id = len(attr_value) - 1
+
+                #Value for Normalized Surname2
+                if record[12] in attr_value:
+                    surname2_id = attr_value.index(record[12])
+                else:
+                    attr_value.append(record[12])
+                    surname2_id = len(attr_value) - 1
+
+                #Year of Birth
+                if record[17] and record[17] in attr_value:
+                    yob_id = attr_value.index(record[17])
+                elif record[17]:
+                    attr_value.append(record[17])
+                    yob_id = len(attr_value) - 1
+                else:
+                    #check DOB for year of birth
+                    year = re.search('1[7-9][0-9]{2}', str(record[16]))
+                    if year:
+                        year = year.group()
+                    elif record[18]:
+                        #compute year of birth from age
+                        year = str(int(record[4]) - int(record[18]))
+                    else:
+                        year = "0000"
+
+                    if year in attr_value:
+                        yob_id = attr_value.index(year)
+                    else:
+                        attr_value.append(year)
+                        yob_id = len(attr_value) - 1
+
+                #Civil Status
+                if record[19] in attr_value:
+                    civil_id = attr_value.index(record[19])
+                else:
+                    attr_value.append(record[19])
+                    civil_id = len(attr_value) - 1
+
+                #Normalized relationship with head
+                rel = record[21].replace(' ', '_')
+                if rel in relation:
+                    relation_id = relation.index(rel)
+                else:
+                    relation.append(rel)
+                    relation_id = len(relation) - 1
+
+                #Normalized occupation
+                if record[29] in attr_value:
+                    occupation_id = attr_value.index(record[29])
+                else:
+                    attr_value.append(record[29])
+                    occupation_id = len(attr_value) - 1
+
+                #add triples
+                rtriples.append((individual_id, household_id, relation_id))
+                atriples.append((individual_id, name_id, 0))
+                atriples.append((individual_id, surname_id, 1))
+                atriples.append((individual_id, surname2_id, 2))
+                atriples.append((individual_id, yob_id, 3))
+                atriples.append((individual_id, civil_id, 4))
+                atriples.append((individual_id, occupation_id, 5))
+
+            logger.info("Number of entities: %d", len(entity))
+            logger.info("Number of values: %d", len(attr_value))
+            logger.info("Number of attributes: %d", len(attribute))
+            logger.info("Number of relations: %d", len(relation))
+            logger.info("Number of Attributional Triples: %d", len(atriples))
+            logger.info("Number of Relational Triples: %d", len(rtriples))
+
+        entity_pairs = []
+        true_pairs = []
+        for e1 in data_1940:
+            for e2 in data_1936:
+                if surname_mapping[e1] == surname_mapping[e2]:
+                    entity_pairs.append((e1, e2))
+                    if dni_mapping[e1] == dni_mapping[e2]:
+                        true_pairs.append((e1,e2))
+
+        logger.info("Number of entity pairs: %d", len(entity_pairs))
+        logger.info("Number of true pairs: %d", len(true_pairs))
+
+        true_pairs = pd.MultiIndex.from_tuples(true_pairs)
+        return (entity, attribute, relation, attr_value, atriples, rtriples, entity_pairs, true_pairs)
 
     def __str__(self):
         return 'Census'

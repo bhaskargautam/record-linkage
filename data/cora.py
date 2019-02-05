@@ -236,8 +236,102 @@ class Cora(object):
         relation = []
         atriples = []
         rtriples = []
+        attr_value = []
+        dni_mapping = {}
+        enitity_id_mapping = {}
 
-        return (entity, attribute, relation, atriples, rtriples)
+        for dni in self.data:
+            for record in self.data[dni]:
+                entity.append("cora" + str(record.get("id")))
+                entity_id = len(entity) - 1;
+                dni_mapping[str(entity_id)] = dni
+                enitity_id_mapping[str(record.get("id"))] = entity_id
+
+                xeid = xml.etree.ElementTree.Element("entity_id")
+                xeid.text = str(entity_id)
+                record.insert(1, xeid)
+
+                for rel in record._children:
+                    if rel.tag in ['Pages', 'booktile', 'month', 'entity_id']:
+                        continue #These Releation only appear once, so skip.
+
+                    if rel.tag in attribute:
+                        attribute_id = attribute.index(rel.tag)
+                    else:
+                        attribute.append(rel.tag)
+                        attribute_id = len(attribute) - 1
+
+                    value = None
+                    if not rel.text:
+                        continue
+                    else:
+                        value = unicode(rel.text.strip())
+                        value = value.replace('(', '')
+                        value = value.replace(')', '')
+                        value = value.replace(';', '')
+                        if rel.tag in ['date', 'year']:
+                            value = value.replace('.', '')
+                            value = value.replace(',', '')
+                        elif rel.tag == 'pages':
+                            m = re.search('[0-9\-]+', value)
+                            if m:
+                                value = m.group()
+                            else:
+                                continue
+                        value = value.lower()
+
+                    if rel.tag == 'author':
+                        #KG2: separate enitity for each author
+                        authors = re.split(',|and|&', value)
+
+                        for author_name in authors:
+                            author_name = author_name.strip()
+                            if len(author_name) < 4:
+                                continue
+                            if author_name in attr_value:
+                                author_id = attr_value.index(author_name)
+                            else:
+                                attr_value.append(author_name)
+                                author_id = len(attr_value) - 1
+
+                            atriples.append((entity_id, author_id, attribute_id))
+                    else:
+                        if value in attr_value:
+                            value_id = attr_value.index(value)
+                        else:
+                            attr_value.append(value)
+                            value_id = len(attr_value) - 1;
+
+                        atriples.append((entity_id, value_id, attribute_id))
+
+        #Add 2 new relations for aligned and non-aligned pairs
+        relation.append('aligned_pairs')
+        alligned_relation_id = len(relation) - 1
+        relation.append('non-aligned_pairs')
+        non_alligned_relation_id = len(relation) - 1
+
+        logger.info("Number of entities: %d", len(entity))
+        logger.info("Number of values: %d", len(attr_value))
+        logger.info("Number of attributes: %d", len(attribute))
+        logger.info("Number of relations: %d", len(relation))
+        logger.info("Number of Attributional Triples: %d", len(atriples))
+        logger.info("Number of Relational Triples: %d", len(rtriples))
+
+        entity_pairs = []
+        true_pairs = []
+        for a in self.trainDataA['id']:#.append(self.testDataA['id']):
+            a_id = enitity_id_mapping[str(a)]
+            for b in self.trainDataB['id']:#.append(self.testDataB['id']):
+                b_id = enitity_id_mapping[str(b)]
+                entity_pairs.append((a_id,b_id))
+                if dni_mapping[str(a_id)] == dni_mapping[str(b_id)]:
+                    true_pairs.append((a_id,b_id))
+
+        logger.info("Number of entity pairs: %d", len(entity_pairs))
+        logger.info("Number of true pairs: %d", len(true_pairs))
+
+        true_pairs = pd.MultiIndex.from_tuples(true_pairs)
+        return (entity, attribute, relation, attr_value, atriples, rtriples, entity_pairs, true_pairs)
 
     def __str__(self):
         return 'Cora'
