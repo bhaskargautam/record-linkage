@@ -71,6 +71,7 @@ class FEBRL(object):
         #Build Knowledge Graph
         dataA = {}
         dataB = {}
+        given_name_dict = {}
         for (dataset, data) in [(self.trainDataA, dataA), (self.trainDataB, dataB)]:
             #Also include test data (self.testDataA, dataA), (self.testDataB, dataB)]:
 
@@ -79,6 +80,7 @@ class FEBRL(object):
                 entity.append(record[0])
                 entity_id = len(entity) - 1
                 data[str(record[0])] = entity_id
+                given_name_dict[str(record[0])] = record[1]['given_name']
 
                 if record[1]['given_name'] in entity:
                     name_id = entity.index(record[1]['given_name'])
@@ -122,15 +124,27 @@ class FEBRL(object):
 
         entity_pairs = []
         true_pairs = []
-        #Todo: Use blocking indexing to reduce entity pairs.
         for a in dataA:
             for b in dataB:
-                entity_pairs.append((dataA[a], dataB[b]))
-                if a.split('-')[1] == b.split('-')[1]:
-                    true_pairs.append((dataA[a], dataB[b]))
+                if given_name_dict[a] == given_name_dict[b]:
+                    entity_pairs.append((dataA[a], dataB[b]))
+                    if a.split('-')[1] == b.split('-')[1]:
+                        true_pairs.append((dataA[a], dataB[b]))
 
         logger.info("Number of entity pairs: %d", len(entity_pairs))
         logger.info("Number of true pairs: %d", len(true_pairs))
 
         true_pairs = pd.MultiIndex.from_tuples(true_pairs)
         return (entity, relation, triples, entity_pairs, true_pairs)
+
+    def get_ear_model(self):
+        entity = []
+        attribute = []
+        relation = []
+        atriples = []
+        rtriples = []
+
+        return (entity, attribute, relation, atriples, rtriples)
+
+    def __str__(self):
+        return 'FEBRL'

@@ -4,9 +4,9 @@ import numpy as np
 from common import sigmoid, get_logger
 from scipy import spatial
 
-logger = get_logger('TransE')
+logger = get_logger('TransH')
 
-class Tensor_TransE(object):
+class TransH(object):
     """
         Tensorflow based implementation of TransE method
         User train method to update the embeddings.
@@ -14,7 +14,7 @@ class Tensor_TransE(object):
 
     def __init__(self, entity, relation, triples, dimension=10, batchSize=100,
                     learning_rate=0.1, margin=1):
-        logger.info("Begin generating TransE embeddings with dimension : %d" ,dimension)
+        logger.info("Begin generating TransH embeddings with dimension : %d" ,dimension)
 
         self.dimension = dimension #Embedding Dimension
         self.batchSize = batchSize #BatchSize for Stochastic Gradient Decent
@@ -34,6 +34,8 @@ class Tensor_TransE(object):
                                     initializer = tf.contrib.layers.xavier_initializer(uniform = False))
         self.rel_embeddings = tf.get_variable(name = "rel_embeddings", shape = [len(relation), dimension],
                                     initializer = tf.contrib.layers.xavier_initializer(uniform = False))
+        self.norm_vector = tf.get_variable(name = "norm_vector", shape = [len(relation), dimension],
+                                    initializer = tf.contrib.layers.xavier_initializer(uniform = False))
 
         #Define Placeholders for input
         self.head = tf.placeholder(tf.int32, shape=[self.batchSize])
@@ -41,12 +43,26 @@ class Tensor_TransE(object):
         self.rel = tf.placeholder(tf.int32, shape=[self.batchSize])
         self.neg_head = tf.placeholder(tf.int32, shape=[self.batchSize])
 
-        #Compute loss
+        #Load Embedding Vectors
         pos_h = tf.nn.embedding_lookup(self.ent_embeddings, self.head)
         pos_t = tf.nn.embedding_lookup(self.ent_embeddings, self.tail)
         pos_r = tf.nn.embedding_lookup(self.rel_embeddings, self.rel)
         pos_nh = tf.nn.embedding_lookup(self.ent_embeddings, self.neg_head)
+        pos_norm = tf.nn.embedding_lookup(self.norm_vector, self.rel)
 
+        #Normalize embedding vectors
+        pos_h = tf.nn.l2_normalize(pos_h, 1)
+        pos_t = tf.nn.l2_normalize(pos_t, 1)
+        pos_r = tf.nn.l2_normalize(pos_r, 1)
+        pos_nh = tf.nn.l2_normalize(pos_nh, 1)
+        pos_norm = tf.nn.l2_normalize(pos_norm, 1)
+
+        #Project entities to hyperplane
+        pos_h = self._transfer(pos_h, pos_norm)
+        pos_t = self._transfer(pos_t, pos_norm)
+        pos_nh = self._transfer(pos_nh, pos_norm)
+
+        #Compute Loss
         _p_score = self._calc(pos_h, pos_t, pos_r)
         _n_score = self._calc(pos_nh, pos_t, pos_r)
 
@@ -67,7 +83,11 @@ class Tensor_TransE(object):
         """
         return abs(h + r - t)
 
+    def _transfer(self, e, n):
+        return e - tf.reduce_sum(e * n, 1, keep_dims = True) * n
+
     def _get_negative_samples(self, triples, entity):
+        #Todo: Too slow
         #Collect negetive samples
         ntriples = []
         for (h, r, t) in triples:

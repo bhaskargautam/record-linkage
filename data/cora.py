@@ -229,3 +229,15 @@ class Cora(object):
 
         true_pairs = pd.MultiIndex.from_tuples(true_pairs)
         return (entity, relation, triples, entity_pairs, true_pairs)
+
+    def get_ear_model(self):
+        entity = []
+        attribute = []
+        relation = []
+        atriples = []
+        rtriples = []
+
+        return (entity, attribute, relation, atriples, rtriples)
+
+    def __str__(self):
+        return 'Cora'
