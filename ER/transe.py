@@ -27,8 +27,7 @@ class TransE(object):
         # List of triples. Remove last incomplete batch if any.
         self.triples = np.array(triples[0: (len(triples) - len(triples)%batchSize)])
         start = timeit.default_timer()
-        self.ntriples = np.array(self._get_negative_samples_fast(triples, entity))
-        #self.ntriples = np.array(self._get_neg_samples())
+        self.ntriples = np.array(self._get_negative_samples(triples, entity))
         logger.info("Neg. Sampling took: %f s", (timeit.default_timer() - start))
         logger.info("Shape of triples: %s", str(self.triples.shape))
         logger.info("Shape of neg triples: %s", str(self.ntriples.shape))
@@ -72,43 +71,21 @@ class TransE(object):
         return abs(h + r - t)
 
     def _get_negative_samples(self, triples, entity):
-        #Todo: Too slow
-        #Collect negetive samples
-        #Todo: use neg_tail and neg_rel also.
-        ntriples = []
-        for (h, r, t) in triples:
-            neg_count = 0
-            all_neg_heads = range(0, h) + range(h + 1, len(entity))
-            np.random.shuffle(all_neg_heads)
-            for neg_head in all_neg_heads:
-                if (neg_head, r, t) not in triples:
-                    ntriples.append((neg_head, r, t))
-                    break
-        logger.info("Number of negative triples: %d", len(ntriples))
-        return ntriples
-
-    def _get_negative_samples_fast(self, triples, entity):
-        #Not that fast either
         #Collect negetive samples
         #Todo: use neg_tail and neg_rel also.
         ntriples = []
         all_heads = range(0, len(entity))
         np.random.shuffle(all_heads)
+        tuple_triples = set(map(tuple, triples))
         for (h, r, t) in triples:
             for neg_head in all_heads:
                 if neg_head == h:
                     continue
-                if (neg_head, r, t) not in triples:
+                if (neg_head, r, t) not in tuple_triples:
                     ntriples.append((neg_head, r, t))
                     break
         logger.info("Number of negative triples: %d", len(ntriples))
         return ntriples
-
-    def _get_neg_head(self, head, t, r):
-        return [h for h in self.entity if (h, t, r) not in self.triples][0]
-
-    def _get_neg_samples(self):
-        return [(self._get_neg_head(h,t,r), t, r) for (h,t,r) in self.triples]
 
     def train(self, max_epochs=100):
         """

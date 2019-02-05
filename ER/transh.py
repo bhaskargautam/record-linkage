@@ -87,15 +87,17 @@ class TransH(object):
         return e - tf.reduce_sum(e * n, 1, keep_dims = True) * n
 
     def _get_negative_samples(self, triples, entity):
-        #Todo: Too slow
         #Collect negetive samples
+        #Todo: use neg_tail and neg_rel also.
         ntriples = []
+        all_heads = range(0, len(entity))
+        np.random.shuffle(all_heads)
+        tuple_triples = set(map(tuple, triples))
         for (h, r, t) in triples:
-            neg_count = 0
-            all_neg_heads = range(0, h) + range(h + 1, len(entity))
-            np.random.shuffle(all_neg_heads)
-            for neg_head in all_neg_heads:
-                if (neg_head, r, t) not in triples:
+            for neg_head in all_heads:
+                if neg_head == h:
+                    continue
+                if (neg_head, r, t) not in tuple_triples:
                     ntriples.append((neg_head, r, t))
                     break
         logger.info("Number of negative triples: %d", len(ntriples))
