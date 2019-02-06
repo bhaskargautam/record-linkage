@@ -187,6 +187,8 @@ class Census(object):
         true_pairs = []
         for e1 in data_1940:
             for e2 in data_1936:
+                if (e1 == e2):
+                    continue
                 if surname_mapping[e1] == surname_mapping[e2]:
                     entity_pairs.append((e1, e2))
                     if dni_mapping[e1] == dni_mapping[e2]:
@@ -316,6 +318,8 @@ class Census(object):
         true_pairs = []
         for e1 in data_1940:
             for e2 in data_1936:
+                if (e1 == e2):
+                    continue
                 if surname_mapping[e1] == surname_mapping[e2]:
                     entity_pairs.append((e1, e2))
                     if dni_mapping[e1] == dni_mapping[e2]:

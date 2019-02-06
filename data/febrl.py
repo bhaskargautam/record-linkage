@@ -126,6 +126,8 @@ class FEBRL(object):
         true_pairs = []
         for a in dataA:
             for b in dataB:
+                if (a == b):
+                    continue
                 if given_name_dict[a] == given_name_dict[b]:
                     entity_pairs.append((dataA[a], dataB[b]))
                     if a.split('-')[1] == b.split('-')[1]:
@@ -205,6 +207,8 @@ class FEBRL(object):
         true_pairs = []
         for a in dataA:
             for b in dataB:
+                if (a == b):
+                    continue
                 if given_name_dict[a] == given_name_dict[b]:
                     entity_pairs.append((dataA[a], dataB[b]))
                     if a.split('-')[1] == b.split('-')[1]:

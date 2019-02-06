@@ -213,13 +213,14 @@ class Cora(object):
         logger.info("Sample Triples: %s", str(triples[:10]))
 
         #Extract candidate links and true links
-
         entity_pairs = []
         true_pairs = []
         for a in self.trainDataA['id']:#.append(self.testDataA['id']):
             a_id = enitity_id_mapping[str(a)]
             for b in self.trainDataB['id']:#.append(self.testDataB['id']):
                 b_id = enitity_id_mapping[str(b)]
+                if (a_id == b_id):
+                    continue
                 entity_pairs.append((a_id,b_id))
                 if dni_mapping[str(a_id)] == dni_mapping[str(b_id)]:
                     true_pairs.append((a_id,b_id))
@@ -323,6 +324,8 @@ class Cora(object):
             a_id = enitity_id_mapping[str(a)]
             for b in self.trainDataB['id']:#.append(self.testDataB['id']):
                 b_id = enitity_id_mapping[str(b)]
+                if (a_id == b_id):
+                    continue
                 entity_pairs.append((a_id,b_id))
                 if dni_mapping[str(a_id)] == dni_mapping[str(b_id)]:
                     true_pairs.append((a_id,b_id))
