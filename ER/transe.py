@@ -27,7 +27,7 @@ class TransE(object):
         # List of triples. Remove last incomplete batch if any.
         self.triples = np.array(triples[0: (len(triples) - len(triples)%batchSize)])
         start = timeit.default_timer()
-        self.ntriples = np.array(self._get_negative_samples(triples, entity))
+        self.ntriples = np.array(self._get_negative_samples(self.triples, self.entity))
         logger.info("Neg. Sampling took: %f s", (timeit.default_timer() - start))
         logger.info("Shape of triples: %s", str(self.triples.shape))
         logger.info("Shape of neg triples: %s", str(self.ntriples.shape))
