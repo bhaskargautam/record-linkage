@@ -18,6 +18,8 @@ logger = get_logger('TestECMClassifier')
 class TestECMClassifier(unittest.TestCase):
 
     def test_cora(self):
+        logger = get_logger('TestECMClassifier.CORA')
+
         #Read Train data in dataset A & B
         cora = Cora()
 
@@ -43,6 +45,8 @@ class TestECMClassifier(unittest.TestCase):
 
     @unittest.skip("Throws ValueError due to inconsistent values for jaro method.")
     def test_febrl(self):
+        logger = get_logger('TestECMClassifier.FEBRL')
+
         febrl = FEBRL()
 
         compare_cl = febrl.get_comparision_object()
@@ -66,6 +70,8 @@ class TestECMClassifier(unittest.TestCase):
 
     @unittest.skip("Throws ValueError")
     def test_census(self):
+        logger = get_logger('TestECMClassifier.Census')
+
         census = Census()
 
         compare_cl = census.get_comparision_object()
