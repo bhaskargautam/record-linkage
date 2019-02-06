@@ -10,7 +10,7 @@ from EAR.kr_ear import KR_EAR
 from scipy import spatial
 
 
-logger = get_logger('TestTransE')
+logger = get_logger('KR_EAR')
 
 class Test_KR_EAR(unittest.TestCase):
 

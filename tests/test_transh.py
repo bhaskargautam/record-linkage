@@ -6,7 +6,7 @@ from common import get_logger, log_quality_results
 from data.cora import Cora
 from data.febrl import FEBRL
 from data.census import Census
-from ER.tensor_transh import Tensor_TransH
+from ER.transh import TransH
 from scipy import spatial
 
 class TestTransH(unittest.TestCase):
@@ -15,7 +15,7 @@ class TestTransH(unittest.TestCase):
         model = dataset()
         logger = get_logger('TestTransH.' + str(model))
         entity, relation, triples, entity_pairs, true_pairs = model.get_er_model()
-        transh = Tensor_TransH(entity, relation, triples, dimension=80)
+        transh = TransH(entity, relation, triples, dimension=80)
         loss = transh.train()
         logger.info("Training Complete with loss: %f", loss)
 
@@ -34,10 +34,10 @@ class TestTransH(unittest.TestCase):
         transh.close_tf_session()
 
     def test_transh_cora(self):
-        self._test_transh(Cora, 0.25)
+        self._test_transh(Cora, 0.2)
 
     def test_transh_febrl(self):
-        self._test_transh(FEBRL, 0.25)
+        self._test_transh(FEBRL, 0.2)
 
     def test_transh_census(self):
-        self._test_transh(Census, 0.25)
+        self._test_transh(Census, 0.2)
