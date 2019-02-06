@@ -57,7 +57,6 @@ class FEBRL(object):
     def get_comparision_object(self):
         compare_cl = recordlinkage.Compare()
 
-        compare_cl.exact('given_name', 'given_name', label='given_name')
         compare_cl.string('surname', 'surname', method='jarowinkler', threshold=0.85, label='surname')
         compare_cl.exact('date_of_birth', 'date_of_birth', label='date_of_birth')
         compare_cl.exact('state', 'state', label='state')

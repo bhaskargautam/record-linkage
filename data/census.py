@@ -69,7 +69,6 @@ class Census(object):
 
         compare_cl.string(10, 10, method='jarowinkler', threshold=0.85, label='normalizedName')
         compare_cl.string(11, 11, method='jarowinkler', threshold=0.85, label='normalizedSurname1')
-        compare_cl.string(12, 12, method='jarowinkler', threshold=0.85, label='normalizedSurname2')
         compare_cl.exact(17, 17, label='yearOfBirth')
         compare_cl.exact(19, 19, label='civilStatus')
         compare_cl.string(21, 21, method='jarowinkler', threshold=0.85, label='normalizedRelation')

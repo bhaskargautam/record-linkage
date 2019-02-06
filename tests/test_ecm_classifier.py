@@ -43,7 +43,6 @@ class TestECMClassifier(unittest.TestCase):
         result = logrg.predict(features)
         log_quality_results(logger, result, cora.true_test_links, len(cora.test_links))
 
-    @unittest.skip("Throws ValueError due to inconsistent values for jaro method.")
     def test_febrl(self):
         logger = get_logger('TestECMClassifier.FEBRL')
 
@@ -68,7 +67,6 @@ class TestECMClassifier(unittest.TestCase):
         result = logrg.predict(features)
         log_quality_results(logger, result, febrl.true_test_links, len(febrl.test_links))
 
-    @unittest.skip("Throws ValueError")
     def test_census(self):
         logger = get_logger('TestECMClassifier.Census')
 
