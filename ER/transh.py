@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
-from common import sigmoid, get_logger
+from common import sigmoid, get_logger, get_negative_samples
 from scipy import spatial
 
 logger = get_logger('TransH')
@@ -25,7 +25,8 @@ class TransH(object):
 
         # List of triples. Remove last incomplete batch if any.
         self.triples = np.array(triples[0: (len(triples) - len(triples)%batchSize)])
-        self.ntriples = np.array(self._get_negative_samples(self.triples,self.entity))
+        self.ntriples = np.array(get_negative_samples(self.triples, len(self.entity),
+                                        len(self.entity), len(self.relation)))
         logger.info("Shape of triples: %s", str(self.triples.shape))
         logger.info("Shape of neg triples: %s", str(self.ntriples.shape))
 
@@ -42,12 +43,16 @@ class TransH(object):
         self.tail = tf.placeholder(tf.int32, shape=[self.batchSize])
         self.rel = tf.placeholder(tf.int32, shape=[self.batchSize])
         self.neg_head = tf.placeholder(tf.int32, shape=[self.batchSize])
+        self.neg_tail= tf.placeholder(tf.int32, shape=[self.batchSize])
+        self.neg_rel= tf.placeholder(tf.int32, shape=[self.batchSize])
 
         #Load Embedding Vectors
         pos_h = tf.nn.embedding_lookup(self.ent_embeddings, self.head)
         pos_t = tf.nn.embedding_lookup(self.ent_embeddings, self.tail)
         pos_r = tf.nn.embedding_lookup(self.rel_embeddings, self.rel)
         pos_nh = tf.nn.embedding_lookup(self.ent_embeddings, self.neg_head)
+        pos_nt = tf.nn.embedding_lookup(self.ent_embeddings, self.neg_tail)
+        pos_nr = tf.nn.embedding_lookup(self.rel_embeddings, self.neg_rel)
         pos_norm = tf.nn.embedding_lookup(self.norm_vector, self.rel)
 
         #Normalize embedding vectors
@@ -55,16 +60,19 @@ class TransH(object):
         pos_t = tf.nn.l2_normalize(pos_t, 1)
         pos_r = tf.nn.l2_normalize(pos_r, 1)
         pos_nh = tf.nn.l2_normalize(pos_nh, 1)
+        pos_nt = tf.nn.l2_normalize(pos_nt, 1)
+        pos_nr = tf.nn.l2_normalize(pos_nr, 1)
         pos_norm = tf.nn.l2_normalize(pos_norm, 1)
 
         #Project entities to hyperplane
         pos_h = self._transfer(pos_h, pos_norm)
         pos_t = self._transfer(pos_t, pos_norm)
         pos_nh = self._transfer(pos_nh, pos_norm)
+        pos_nt = self._transfer(pos_nt, pos_norm)
 
         #Compute Loss
         _p_score = self._calc(pos_h, pos_t, pos_r)
-        _n_score = self._calc(pos_nh, pos_t, pos_r)
+        _n_score = self._calc(pos_nh, pos_nt, pos_nr)
 
         p_score = tf.reduce_mean(_p_score)
         n_score = tf.reduce_mean(_n_score)
@@ -119,7 +127,9 @@ class TransH(object):
                         self.head : self.triples[i:batchend][:,0],
                         self.tail : self.triples[i:batchend][:,1],
                         self.rel  : self.triples[i:batchend][:,2],
-                        self.neg_head : self.ntriples[i:batchend][:,0]
+                        self.neg_head : self.ntriples[i:batchend][:,0],
+                        self.neg_tail : self.ntriples[i:batchend][:,1],
+                        self.neg_rel : self.ntriples[i:batchend][:,2]
                         }
                     _ , cur_loss = self.sess.run([self.optimizer, self.loss], feed_dict=feed_dict)
                     loss = loss + cur_loss

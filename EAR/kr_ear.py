@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
-from common import sigmoid, get_logger
+from common import sigmoid, get_logger, get_negative_samples
 from scipy import spatial
 
 logger = get_logger('TransE')
@@ -26,8 +26,10 @@ class KR_EAR(object):
         logger.info("Modified Rtriples size: %d", len(self.rtriples))
 
         #Collect Negative Samples
-        self.natriples = np.array(self._get_negative_samples(self.atriples, self.entity))
-        self.nrtriples = np.array(self._get_negative_samples(self.rtriples, self.entity))
+        self.nrtriples = np.array(get_negative_samples(self.rtriples, len(self.entity),
+                                    len(self.entity), len(self.relation)))
+        self.natriples = np.array(get_negative_samples(self.atriples, len(self.entity),
+                                len(self.value), len(self.attribute)))
 
         #Define Embedding Variables
         self.ent_embeddings = tf.get_variable(name = "ent_embeddings", shape = [len(entity), dimension],
@@ -46,32 +48,43 @@ class KR_EAR(object):
         self.tail = tf.placeholder(tf.int32, shape=[self.batchSize])
         self.rel = tf.placeholder(tf.int32, shape=[self.batchSize])
         self.neg_head = tf.placeholder(tf.int32, shape=[self.batchSize])
+        self.neg_tail = tf.placeholder(tf.int32, shape=[self.batchSize])
+        self.neg_rel = tf.placeholder(tf.int32, shape=[self.batchSize])
 
         self.attr_head = tf.placeholder(tf.int32, shape=[self.batchSize])
         self.val = tf.placeholder(tf.int32, shape=[self.batchSize])
         self.attr = tf.placeholder(tf.int32, shape=[self.batchSize])
         self.neg_attr_head = tf.placeholder(tf.int32, shape=[self.batchSize])
+        self.neg_val = tf.placeholder(tf.int32, shape=[self.batchSize])
+        self.neg_attr = tf.placeholder(tf.int32, shape=[self.batchSize])
 
         #Load Embedding Vectors
         pos_h = tf.nn.embedding_lookup(self.ent_embeddings, self.head)
         pos_t = tf.nn.embedding_lookup(self.ent_embeddings, self.tail)
         pos_r = tf.nn.embedding_lookup(self.rel_embeddings, self.rel)
         pos_nh = tf.nn.embedding_lookup(self.ent_embeddings, self.neg_head)
+        pos_nt = tf.nn.embedding_lookup(self.ent_embeddings, self.neg_tail)
+        pos_nr = tf.nn.embedding_lookup(self.rel_embeddings, self.neg_rel)
+
         pos_attr_h = tf.nn.embedding_lookup(self.ent_embeddings, self.attr_head)
         pos_val = tf.nn.embedding_lookup(self.val_embeddings, self.val)
         pos_attr = tf.nn.embedding_lookup(self.attr_embeddings, self.attr)
         pos_attr_nh = tf.nn.embedding_lookup(self.ent_embeddings, self.neg_attr_head)
-        pos_proj = tf.nn.embedding_lookup(self.attr_embeddings, self.attr)
+        pos_attr_nv = tf.nn.embedding_lookup(self.val_embeddings, self.neg_val)
+        pos_attr_na = tf.nn.embedding_lookup(self.attr_embeddings, self.neg_attr)
+
+        pos_proj = tf.nn.embedding_lookup(self.projection_matrix, self.attr)
+        pos_nproj = tf.nn.embedding_lookup(self.projection_matrix, self.neg_attr)
 
         proj_pos_attr_h = self._transfer(pos_attr_h, pos_proj)
-        proj_pos_attr_nh = self._transfer(pos_attr_nh, pos_proj)
+        proj_pos_attr_nh = self._transfer(pos_attr_nh, pos_nproj)
 
         #Compute Loss
         _p_score = self._calc(pos_h, pos_t, pos_r)
-        _n_score = self._calc(pos_nh, pos_t, pos_r)
+        _n_score = self._calc(pos_nh, pos_nt, pos_nr)
 
         _ap_score = self._attr_calc(proj_pos_attr_h, pos_val, pos_attr)
-        _an_score = self._attr_calc(proj_pos_attr_nh, pos_val, pos_attr)
+        _an_score = self._attr_calc(proj_pos_attr_nh, pos_attr_nv, pos_attr_na)
 
         p_score = tf.reduce_mean(_p_score)
         n_score = tf.reduce_mean(_n_score)
@@ -115,7 +128,9 @@ class KR_EAR(object):
                         self.head : self.rtriples[i:batchend][:,0],
                         self.tail : self.rtriples[i:batchend][:,1],
                         self.rel : self.rtriples[i:batchend][:,2],
-                        self.neg_head : self.nrtriples[i:batchend][:,0]
+                        self.neg_head : self.nrtriples[i:batchend][:,0],
+                        self.neg_tail : self.nrtriples[i:batchend][:,1],
+                        self.neg_rel : self.nrtriples[i:batchend][:,2]
                     }
                     _, cur_rel_loss = self.sess.run([self.rel_optimizer, self.rel_loss],
                         feed_dict=feed_dict)
@@ -129,7 +144,9 @@ class KR_EAR(object):
                         self.attr_head : self.atriples[i:batchend][:,0],
                         self.val : self.atriples[i:batchend][:,1],
                         self.attr : self.atriples[i:batchend][:,2],
-                        self.neg_attr_head : self.natriples[i:batchend][:,0]
+                        self.neg_attr_head : self.natriples[i:batchend][:,0],
+                        self.neg_val : self.natriples[i:batchend][:,1],
+                        self.neg_attr : self.natriples[i:batchend][:,2]
                     }
                     _, cur_attr_loss = self.sess.run([self.attr_optimizer, self.attr_loss],
                         feed_dict=feed_dict)
