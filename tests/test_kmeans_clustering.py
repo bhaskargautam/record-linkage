@@ -52,7 +52,7 @@ class TestKmeansClustering(unittest.TestCase):
         features = compare_cl.compute(febrl.candidate_links, febrl.trainDataA, febrl.trainDataB)
         logger.info("Features %s", str(features.describe()))
 
-        # Train ECM Classifier
+        # Train K-Means Classifier
         logrg = recordlinkage.KMeansClassifier()
         logrg.fit(features)
 
@@ -76,8 +76,8 @@ class TestKmeansClustering(unittest.TestCase):
         features = compare_cl.compute(census.candidate_links, census.trainDataA, census.trainDataB)
         logger.info("Features %s", str(features.describe()))
 
-        # Train ECM Classifier
-        logrg = recordlinkage.KMeansClassifier()
+        # Train K-Means Classifier
+        logrg = recordlinkage.KMeansClassifier(algorithm='full', max_iter=1000, random_state=42)
         logrg.fit(features)
 
         result = logrg.predict(features)
