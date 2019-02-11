@@ -13,7 +13,7 @@ class TransH(object):
     """
 
     def __init__(self, entity, relation, triples, dimension=10, batchSize=100,
-                    learning_rate=0.1, margin=1):
+                    learning_rate=0.1, margin=1, regularizer_scale = 0.1):
         logger.info("Begin generating TransH embeddings with dimension : %d" ,dimension)
 
         self.dimension = dimension #Embedding Dimension
@@ -31,12 +31,15 @@ class TransH(object):
         logger.info("Shape of neg triples: %s", str(self.ntriples.shape))
 
         #Define Embedding Variables
+        initializer = tf.contrib.layers.xavier_initializer(uniform = False)
+        regularizer = tf.contrib.layers.l2_regularizer(scale = regularizer_scale)
+
         self.ent_embeddings = tf.get_variable(name = "ent_embeddings", shape = [len(entity), dimension],
-                                    initializer = tf.contrib.layers.xavier_initializer(uniform = False))
+                                    initializer = initializer, regularizer = regularizer)
         self.rel_embeddings = tf.get_variable(name = "rel_embeddings", shape = [len(relation), dimension],
-                                    initializer = tf.contrib.layers.xavier_initializer(uniform = False))
+                                    initializer = initializer, regularizer = regularizer)
         self.norm_vector = tf.get_variable(name = "norm_vector", shape = [len(relation), dimension],
-                                    initializer = tf.contrib.layers.xavier_initializer(uniform = False))
+                                    initializer = initializer, regularizer = regularizer)
 
         #Define Placeholders for input
         self.head = tf.placeholder(tf.int32, shape=[self.batchSize])

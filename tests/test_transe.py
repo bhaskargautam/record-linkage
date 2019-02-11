@@ -1,5 +1,7 @@
 import config
+import itertools
 import pandas as pd
+import recordlinkage
 import unittest
 
 from common import get_logger, log_quality_results, sigmoid
@@ -9,7 +11,6 @@ from data.census import Census
 from ER.transe import TransE
 from scipy import spatial
 from sklearn.metrics import precision_recall_curve
-import recordlinkage
 
 logger = get_logger('TestTransE')
 
@@ -22,7 +23,9 @@ class TestTransE(unittest.TestCase):
         transe = TransE(entity, relation, triples,
                         dimension=params['dimension'],
                         learning_rate=params['learning_rate'],
-                        margin=params['margin'])
+                        margin=params['margin'],
+                        regularizer_scale=params['regularizer_scale'],
+                        batchSize=params['batchSize'])
         loss = transe.train(max_epochs=params['epochs'])
         logger.info("Training Complete with loss: %f", loss)
 
@@ -62,30 +65,46 @@ class TestTransE(unittest.TestCase):
             logger.info("Zero Reults")
 
         transe.close_tf_session()
+        return max_fscore
 
-    @unittest.skip("Takes Tooo long")
-    def test_transe_cora_grid_search(self):
-        params = {
-            'learning_rate': 0.1,
-            'dimension' : 80,
-            'margin' : 1,
-            'epochs' : 100
-        }
-        for learning_rate in range(1, 9):
-            learning_rate = learning_rate / 10.0
-            params['learning_rate'] = learning_rate
-            for dimension in range(10, 100, 10):
-                params['dimension'] = dimension
-                for margin in range(1, 10):
-                    margin = margin / 10.0
-                    params['margin'] = margin
-                    self._test_transe(Cora, params)
+    def get_default_params(self):
+        return {'learning_rate': 0.1, 'margin': 1, 'dimension': 80, 'epochs': 500,
+                'regularizer_scale' : 0.1, 'batchSize' : 100}
 
     def test_transe_cora(self):
-        self._test_transe(Cora, {'learning_rate': 0.1, 'margin': 1, 'dimension': 80, 'epochs': 500})
+        self._test_transe(Cora, self.get_default_params())
 
     def test_transe_febrl(self):
-        self._test_transe(FEBRL, {'learning_rate': 0.1, 'margin': 1, 'dimension': 80, 'epochs': 500})
+        self._test_transe(FEBRL, self.get_default_params())
 
     def test_transe_census(self):
-        self._test_transe(Census, {'learning_rate': 0.1, 'margin': 1, 'dimension': 80, 'epochs': 500})
+        self._test_transe(Census, self.get_default_params())
+
+    def _test_grid_search(self, model):
+        dimension= [50, 80, 120]
+        batchSize= [100]
+        learning_rate= [0.1, 0.2]
+        margin= [0, 0.5, 1]
+        regularizer_scale = [0.1, 0.2]
+        epochs = [100, 500]
+        count = 0
+        max_fscore = 0
+        for d, bs, lr, m, reg, e in itertools.product(dimension, batchSize, learning_rate, margin, regularizer_scale, epochs):
+            params = {'learning_rate': lr, 'margin': m, 'dimension': d, 'epochs': e, 'batchSize' : bs, 'regularizer_scale' : reg}
+            logger.info("\nPARAMS: %s", str(params))
+            count = count + 1
+            cur_fscore = self._test_transe(model, params)
+            if max_fscore <= cur_fscore:
+                max_fscore = cur_fscore
+
+        logger.info("Ran total %d Tests.", count)
+        logger.info("Max Fscore: %f", max_fscore)
+
+    def test_grid_search_cora(self):
+        self._test_grid_search(Cora)
+
+    def test_grid_search_febrl(self):
+        self._test_grid_search(FEBRL)
+
+    def test_grid_search_census(self):
+        self._test_grid_search(Census)
