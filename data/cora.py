@@ -53,6 +53,11 @@ class Cora(object):
                 else:
                     testA.append(self.data[dni][0])
                     testB.append(self.data[dni][1])
+                for i in range(2, len(self.data[dni])):
+                    if random.randint(0, 1):
+                        testA.append(self.data[dni][i])
+                    else:
+                        testB.append(self.data[dni][i])
 
         #Add noise enities to both dataset which are not linked.
         for dni in self.data:
@@ -67,7 +72,13 @@ class Cora(object):
                     testB.append(self.data[dni][0])
 
         logger.info("Size of Dataset A %d and B  %d", len(dataA), len(dataB))
-        df_a = df_b = tdf_a = tdf_b = {  'dni' : [], 'author' : [], 'publisher' : [], 'date' : [],
+        df_a = {  'dni' : [], 'author' : [], 'publisher' : [], 'date' : [],
+                'title' : [], 'journal' : [], 'volume' : [], 'pages' : [], 'address' : [], 'id' : []}
+        df_b = {  'dni' : [], 'author' : [], 'publisher' : [], 'date' : [],
+                'title' : [], 'journal' : [], 'volume' : [], 'pages' : [], 'address' : [], 'id' : []}
+        tdf_a = {  'dni' : [], 'author' : [], 'publisher' : [], 'date' : [],
+                'title' : [], 'journal' : [], 'volume' : [], 'pages' : [], 'address' : [], 'id' : []}
+        tdf_b = {  'dni' : [], 'author' : [], 'publisher' : [], 'date' : [],
                 'title' : [], 'journal' : [], 'volume' : [], 'pages' : [], 'address' : [], 'id' : []}
         for (df, dataset) in [(df_a, dataA), (df_b, dataB), (tdf_a, testA), (tdf_b, testB)]:
             for record in dataset:
@@ -140,7 +151,7 @@ class Cora(object):
 
         for dni in self.data:
             for record in self.data[dni]:
-                entity.append("cora" + str(record.get("id")))
+                entity.append("cora" + str(record.get("id") + "_" + str(dni)))
                 entity_id = len(entity) - 1;
                 enitity_id_mapping[str(record.get("id"))] = entity_id
 
@@ -243,7 +254,7 @@ class Cora(object):
 
         for dni in self.data:
             for record in self.data[dni]:
-                entity.append("cora" + str(record.get("id")))
+                entity.append("cora" + str(record.get("id") + "_" + str(dni)))
                 entity_id = len(entity) - 1;
                 dni_mapping[str(entity_id)] = dni
                 enitity_id_mapping[str(record.get("id"))] = entity_id

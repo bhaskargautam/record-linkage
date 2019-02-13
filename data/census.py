@@ -89,7 +89,7 @@ class Census(object):
                 record = record[1]
 
                 #new entity for each record
-                entity.append(record[1])
+                entity.append(str(record[1]) + "_" + str(record[3]))
                 individual_id = len(entity) - 1
 
                 #entity for each household
@@ -216,7 +216,7 @@ class Census(object):
                 record = record[1]
 
                 #new entity for each record
-                entity.append(record[1])
+                entity.append(str(record[1]) + "_" + str(record[3]))
                 individual_id = len(entity) - 1
 
                 #entity for each household
