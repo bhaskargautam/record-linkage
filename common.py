@@ -85,3 +85,34 @@ def get_negative_samples(triples, total_head, total_tail, total_rel, neg_rate=1)
 
     logger.info("Number of negative triples: %d", len(ntriples))
     return ntriples
+
+def export_kg_er_model(entity, relation, triples,
+                            e_file='data/entity_id.txt',
+                            r_file='data/relation_id.txt',
+                            t_file='data/triple.txt'):
+    #Todo: Implement export logic
+    return True
+
+def export_kg_ear_model(entity, attribute, relation, value, atriples, rtriples,
+                            e_file='data/entity_id.txt',
+                            a_file='data/attribute_id.txt',
+                            r_file='data/relation_id.txt',
+                            v_file='data/value_id.txt',
+                            at_file='data/atriple.txt',
+                            rt_file='data/rtriple.txt',):
+    #Todo: Implement export logic
+    return True
+
+def export_embeddings(model, method, entity, ent_emebedding):
+    with open(str(model) + "_" + str(method) + "_embedding.tsv", "w+") as f:
+        for e in ent_embeddings:
+            for i in range(0, len(e)):
+                f.write("%f\t" % e[i])
+            f.write("\n")
+
+    with open(str(model) + "_" + str(method) + "_meta.tsv", "w+") as f:
+        for e in entity:
+            try:
+                f.write("%s\n" % str(e))
+            except UnicodeEncodeError:
+                f.write("%s\n" % str(e.encode('ascii', 'ignore').decode('ascii')))
