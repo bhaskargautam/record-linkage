@@ -348,4 +348,4 @@ class Cora(object):
         return (entity, attribute, relation, attr_value, atriples, rtriples, entity_pairs, true_pairs)
 
     def __str__(self):
-        return 'Cora'
+        return config.CORA_FILE_PREFIX

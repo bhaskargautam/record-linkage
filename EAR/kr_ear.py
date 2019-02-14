@@ -8,8 +8,8 @@ logger = get_logger('TransE')
 
 class KR_EAR(object):
 
-    def __init__(self, entity, attribute, relation, value, atriples, rtriples,
-            dimension=10, learning_rate=0.1, batchSize=100, margin=1):
+    def __init__(self, entity, attribute, relation, value, atriples, rtriples, dimension=10, learning_rate=0.1,
+                                batchSize=100, margin=1, regularizer_scale = 0.1):
         self.entity = entity
         self.attribute = attribute
         self.relation = relation
@@ -32,16 +32,19 @@ class KR_EAR(object):
                                 len(self.value), len(self.attribute)))
 
         #Define Embedding Variables
+        initializer = tf.contrib.layers.xavier_initializer(uniform = False)
+        regularizer = tf.contrib.layers.l2_regularizer(scale = regularizer_scale)
+
         self.ent_embeddings = tf.get_variable(name = "ent_embeddings", shape = [len(entity), dimension],
-                                    initializer = tf.contrib.layers.xavier_initializer(uniform = False))
+                                    initializer = initializer, regularizer = regularizer)
         self.rel_embeddings = tf.get_variable(name = "rel_embeddings", shape = [len(relation), dimension],
-                                    initializer = tf.contrib.layers.xavier_initializer(uniform = False))
+                                    initializer = initializer, regularizer = regularizer)
         self.attr_embeddings = tf.get_variable(name = "attr_embeddings", shape = [len(attribute), dimension],
-                                    initializer = tf.contrib.layers.xavier_initializer(uniform = False))
+                                    initializer = initializer, regularizer = regularizer)
         self.val_embeddings = tf.get_variable(name = "val_embeddings", shape = [len(value), dimension],
-                                    initializer = tf.contrib.layers.xavier_initializer(uniform = False))
+                                    initializer = initializer, regularizer = regularizer)
         self.projection_matrix = tf.get_variable(name = "projection_matrix", shape = [len(attribute), dimension],
-                                    initializer = tf.contrib.layers.xavier_initializer(uniform = False))
+                                    initializer = initializer, regularizer = regularizer)
 
         #Define Placeholders for input
         self.head = tf.placeholder(tf.int32, shape=[self.batchSize])
@@ -158,24 +161,6 @@ class KR_EAR(object):
                     epoch, loss, rel_loss, attr_loss)
 
         return loss
-
-    def _get_negative_samples(self, triples, entity):
-        #Collect negetive samples
-        #Todo: use neg_tail and neg_rel also.
-        ntriples = []
-        all_heads = range(0, len(entity))
-        np.random.shuffle(all_heads)
-        tuple_triples = set(map(tuple, triples))
-        logger.info("SIze of tuple_triples: %d", len(tuple_triples))
-        for (h, r, t) in triples:
-            for neg_head in all_heads:
-                if neg_head == h:
-                    continue
-                if (neg_head, r, t) not in tuple_triples:
-                    ntriples.append((neg_head, r, t))
-                    break
-        logger.info("Number of negative triples: %d", len(ntriples))
-        return ntriples
 
     def get_ent_embeddings(self):
         with self.sess.as_default():

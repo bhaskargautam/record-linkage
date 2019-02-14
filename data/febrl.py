@@ -1,3 +1,4 @@
+import config
 import recordlinkage
 import pandas as pd
 
@@ -220,4 +221,4 @@ class FEBRL(object):
         return (entity, attribute, relation, attr_value, atriples, rtriples, entity_pairs, true_pairs)
 
     def __str__(self):
-        return 'FEBRL'
+        return config.FEBRL_FILE_PREFIX

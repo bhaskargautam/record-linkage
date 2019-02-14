@@ -1,19 +1,22 @@
+import config
 import logging
 import numpy as np
 import random
 import recordlinkage
+import pandas as pd
 
-def get_logger(name, filename='test.log', level=logging.DEBUG):
-    logging.basicConfig(filename=filename, level=level,
+def get_logger(name, filename=config.DEFAULT_LOG_FILE, level=logging.DEBUG):
+    log_file_path = config.BASE_OUTPUT_FOLDER + filename
+    logging.basicConfig(filename=log_file_path, level=level,
         format='%(name)s %(asctime)s %(levelname)s %(message)s')
     logger = logging.getLogger(name)
     logger.addHandler(logging.StreamHandler())
     return logger
 
 def write_results(results_for, fscore, accuracy, precision, recall, params):
-    f = open('result.log', 'a+')
-    f.write("%s, %f, %f, %f, %f, %s\n" % (results_for, fscore, accuracy, precision, recall, str(params)))
-    f.close()
+    with open(config.BASE_OUTPUT_FOLDER + config.DEFAULT_RESULT_LOG_FILE, 'a+') as f:
+        f.write("%s, %f, %f, %f, %f, %s\n" % (results_for, fscore, accuracy,
+            precision, recall, str(params)))
 
 def log_quality_results(logger, result, true_links, total_pairs, params=None):
     logger.info("Number of Results %d", len(result))
@@ -86,33 +89,35 @@ def get_negative_samples(triples, total_head, total_tail, total_rel, neg_rate=1)
     logger.info("Number of negative triples: %d", len(ntriples))
     return ntriples
 
-def export_kg_er_model(entity, relation, triples,
-                            e_file='data/entity_id.txt',
-                            r_file='data/relation_id.txt',
-                            t_file='data/triple.txt'):
-    #Todo: Implement export logic
-    return True
-
-def export_kg_ear_model(entity, attribute, relation, value, atriples, rtriples,
-                            e_file='data/entity_id.txt',
-                            a_file='data/attribute_id.txt',
-                            r_file='data/relation_id.txt',
-                            v_file='data/value_id.txt',
-                            at_file='data/atriple.txt',
-                            rt_file='data/rtriple.txt',):
-    #Todo: Implement export logic
-    return True
-
 def export_embeddings(model, method, entity, ent_emebedding):
-    with open(str(model) + "_" + str(method) + "_embedding.tsv", "w+") as f:
-        for e in ent_embeddings:
+    base_file_name = config.BASE_OUTPUT_FOLDER + str(model) + "_" + str(method)
+    with open(base_file_name + "_embedding.tsv", "w+") as f:
+        for e in ent_emebedding:
             for i in range(0, len(e)):
                 f.write("%f\t" % e[i])
             f.write("\n")
 
-    with open(str(model) + "_" + str(method) + "_meta.tsv", "w+") as f:
+    with open(base_file_name + "_meta.tsv", "w+") as f:
         for e in entity:
             try:
                 f.write("%s\n" % str(e))
             except UnicodeEncodeError:
                 f.write("%s\n" % str(e.encode('ascii', 'ignore').decode('ascii')))
+
+def get_optimal_threshold(result_prob, true_pairs):
+    logger = get_logger('OPTIMAL_THRESHOLD')
+    max_fscore = 0.0
+    optimal_threshold = 0
+    for threshold in range(20,110, 5):
+        threshold = threshold / 100.0
+        try:
+            result = pd.MultiIndex.from_tuples([(e1, e2) for (e1, e2, d) in result_prob if d <= threshold])
+            fscore = recordlinkage.fscore(true_pairs, result)
+            if fscore >= max_fscore:
+                max_fscore = fscore
+                optimal_threshold = threshold
+        except Exception as e:
+            logger.error(e)
+            continue
+    logger.info("Found optimal threshold %f with max_fscore: %f", optimal_threshold, max_fscore)
+    return (optimal_threshold, max_fscore)

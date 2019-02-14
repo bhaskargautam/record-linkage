@@ -2,6 +2,7 @@ import config
 import numpy as np
 import pandas as pd
 import recordlinkage
+import re
 
 from common import get_logger
 
@@ -20,7 +21,7 @@ class Census(object):
 
     def __init__(self):
         logger.info("Reading Census Records...")
-        WS = pd.read_excel(config.CENSUS_SANT_FELIU)
+        WS = pd.read_excel(config.CENSUS_SANT_FELIU, keep_default_na=False)
         data = np.array(WS)
         logger.info("Shape of Census data: %s", str(data.shape))
         logger.info("Sample Record: %s", str(data[0]))
@@ -138,7 +139,10 @@ class Census(object):
                         year = year.group()
                     elif record[18]:
                         #compute year of birth from age
-                        year = str(int(record[4]) - int(record[18]))
+                        try:
+                            year = str(int(record[4]) - int(record[18]))
+                        except ValueError:
+                            year = "0000"
                     else:
                         year = "0000"
 
@@ -182,6 +186,7 @@ class Census(object):
         logger.info("Number of relations: %d", len(relation))
         logger.info("Number of Triples: %d", len(triples))
 
+        #Extract candidate pairs and true pairs
         entity_pairs = []
         true_pairs = []
         for e1 in data_1940:
@@ -265,7 +270,10 @@ class Census(object):
                         year = year.group()
                     elif record[18]:
                         #compute year of birth from age
-                        year = str(int(record[4]) - int(record[18]))
+                        try:
+                            year = str(int(record[4]) - int(record[18]))
+                        except ValueError:
+                            year = "0000"
                     else:
                         year = "0000"
 
@@ -313,6 +321,7 @@ class Census(object):
             logger.info("Number of Attributional Triples: %d", len(atriples))
             logger.info("Number of Relational Triples: %d", len(rtriples))
 
+        #Extract candidate pairs and true pairs
         entity_pairs = []
         true_pairs = []
         for e1 in data_1940:
@@ -331,4 +340,4 @@ class Census(object):
         return (entity, attribute, relation, attr_value, atriples, rtriples, entity_pairs, true_pairs)
 
     def __str__(self):
-        return 'Census'
+        return config.CENSUS_FILE_PREFIX
