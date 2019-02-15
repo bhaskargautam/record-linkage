@@ -160,6 +160,42 @@ class SEEA(object):
 
         return loss
 
+    def get_top_beta_pairs(self, entity_pairs, beta):
+        closet_neighbour = [None] * len(self.entity)
+        ent_embeddings = self.get_ent_embeddings()
+        for (e1,e2) in entity_pairs:
+            #Compute cosine distance
+            distance = abs(spatial.distance.cosine(ent_embeddings[e1], ent_embeddings[e2]))
+
+            #initialize closet neighbour dict.
+            if closet_neighbour[e1] is None:
+                closet_neighbour[e1] = {'e' : -1, 'd': 100}
+            if closet_neighbour[e2] is None:
+                closet_neighbour[e2] = {'e' : -1, 'd': 100}
+
+            if closet_neighbour[e1]['d'] > distance:
+                closet_neighbour[e1]['e'] = e2
+                closet_neighbour[e1]['d'] = distance
+
+            if closet_neighbour[e2]['d'] > distance:
+                closet_neighbour[e2]['e'] = e1
+                closet_neighbour[e2]['d'] = distance
+
+        aligned_pairs = []
+        for (e1,e2) in entity_pairs:
+            #Skip if no closest neighbour computed
+            if closet_neighbour[e1]['e'] == -1:
+                continue
+            if closet_neighbour[e2]['e'] == -1:
+                continue
+
+            if closet_neighbour[e1]['e'] == e2 and closet_neighbour[e2]['e'] == e1:
+                aligned_pairs.append((e1, e2))
+                if len(aligned_pairs) == beta:
+                    break
+
+        return aligned_pairs
+
     def get_ent_embeddings(self):
         with self.sess.as_default():
             return tf.nn.embedding_lookup(self.ent_embeddings, range(0, len(self.entity))).eval()
@@ -177,4 +213,30 @@ class SEEA(object):
         self.nrtriples = np.array(get_negative_samples(self.rtriples, len(self.entity),
                                 len(self.entity), len(self.relation)))
         return len(self.rtriples)
+
+    def seea_iterate(self, entity_pairs, true_pairs, beta=10, max_iter=100, max_epochs=100):
+        predicted_pairs = []
+        for j in range(0, max_iter):
+            loss = self.train(max_epochs)
+            logger.info("Training Complete with loss: %f for iteration: %d", loss, j)
+
+            aligned_pairs = self.get_top_beta_pairs(entity_pairs, beta)
+            logger.info("Found %d new aligned pairs for iteration: %d", len(aligned_pairs), j)
+
+            if len(aligned_pairs) == 0:
+                logger.info("End of SEEA iterations: No new pairs found.")
+                return predicted_pairs
+
+            new_triples = [(e1, e2, len(self.relation) - 1) for (e1, e2) in aligned_pairs]
+            rtriple_count = self.add_rel_triples(new_triples)
+            logger.info("New size of Rtriples %d", rtriple_count)
+            predicted_pairs.extend(aligned_pairs)
+
+            #Removed aligned pairs from candidate pairs
+            for (e1, e2) in aligned_pairs:
+                entity_pairs.remove((e1,e2))
+                logger.info("%d, %d aligned. In True pairs: %s", e1, e2, (e1, e2) in true_pairs)
+
+        logger.info("End of SEEA iterations: Max iteration reached.")
+        return predicted_pairs
 
