@@ -13,8 +13,8 @@ class TransE(object):
         User train method to update the embeddings.
     """
 
-    def __init__(self, entity, relation, triples, dimension=10, batchSize=100,
-                    learning_rate=0.1, margin=1, regularizer_scale = 0.1):
+    def __init__(self, entity, relation, triples, entity_pairs, dimension=10, batchSize=100,
+                    learning_rate=0.1, margin=1, regularizer_scale = 0.1, neg_rate=1, neg_rel_rate=0):
         logger.info("Begin generating TransE embeddings with dimension : %d" ,dimension)
 
         self.dimension = dimension #Embedding Dimension
@@ -23,12 +23,14 @@ class TransE(object):
         self.margin = margin #margin or bias used for loss computation
         self.entity = entity #List of entities in Knowledge graph
         self.relation = relation #List of relationships in Knowledge Graph
+        self.neg_rate = neg_rate #Number of Negative samples to generate by replacing head or tail
+        self.neg_rel_rate = neg_rel_rate #Number fo negative samples by replacing realtion
 
         # List of triples. Remove last incomplete batch if any.
         self.triples = np.array(triples[0: (len(triples) - len(triples)%batchSize)])
         start = timeit.default_timer()
-        self.ntriples = np.array(get_negative_samples(self.triples, len(self.entity),
-                                                len(self.entity), len(self.relation)))
+        self.ntriples = np.array(get_negative_samples(self.triples, len(self.entity), len(self.entity),
+                                        len(self.relation), entity_pairs, neg_rate=neg_rate, neg_rel_rate=neg_rel_rate))
         logger.info("Neg. Sampling took: %f s", (timeit.default_timer() - start))
         logger.info("Shape of triples: %s", str(self.triples.shape))
         logger.info("Shape of neg triples: %s", str(self.ntriples.shape))
@@ -45,9 +47,9 @@ class TransE(object):
         self.head = tf.placeholder(tf.int32, shape=[self.batchSize])
         self.tail = tf.placeholder(tf.int32, shape=[self.batchSize])
         self.rel = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.neg_head = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.neg_tail = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.neg_rel = tf.placeholder(tf.int32, shape=[self.batchSize])
+        self.neg_head = tf.placeholder(tf.int32, shape=[self.batchSize, (neg_rate + neg_rel_rate)])
+        self.neg_tail = tf.placeholder(tf.int32, shape=[self.batchSize, (neg_rate + neg_rel_rate)])
+        self.neg_rel = tf.placeholder(tf.int32, shape=[self.batchSize, (neg_rate + neg_rel_rate)])
 
         pos_h = tf.nn.embedding_lookup(self.ent_embeddings, self.head)
         pos_t = tf.nn.embedding_lookup(self.ent_embeddings, self.tail)
@@ -64,12 +66,16 @@ class TransE(object):
         pos_nt = tf.nn.l2_normalize(pos_nt, 1)
         pos_nr = tf.nn.l2_normalize(pos_nr, 1)
 
+        logger.info("Pos Triple Shapes: %s, %s, %s", str(pos_h.shape), str(pos_t.shape), str(pos_r.shape))
+        logger.info("Neg Triple Shapes: %s, %s, %s", str(pos_nh.shape), str(pos_nt.shape), str(pos_nr.shape))
+
         #Compute loss
         _p_score = self._calc(pos_h, pos_t, pos_r)
         _n_score = self._calc(pos_nh, pos_nt, pos_nr)
 
         p_score = tf.reduce_mean(_p_score, 1)
-        n_score = tf.reduce_mean(_n_score, 1)
+        n_score = tf.reduce_mean(tf.reduce_mean(_n_score, 1), axis=1)
+        logger.info("PScore Shape %s. N_score Shape: %s", str(p_score.shape), str(n_score.shape))
 
         self.loss = tf.reduce_mean(tf.maximum(p_score - n_score + self.margin, 0))
 
@@ -98,13 +104,14 @@ class TransE(object):
                 loss = 0
                 for i in np.arange(0, len(self.triples), self.batchSize):
                     batchend = min(len(self.triples), i + self.batchSize)
+                    neg_batchend = min(len(self.ntriples), i + self.batchSize*(self.neg_rate + self.neg_rel_rate))
                     feed_dict = {
                         self.head : self.triples[i:batchend][:, 0],
                         self.tail : self.triples[i:batchend][:, 1],
                         self.rel  : self.triples[i:batchend][:, 2],
-                        self.neg_head : self.ntriples[i:batchend][:, 0],
-                        self.neg_tail : self.ntriples[i:batchend][:, 1],
-                        self.neg_rel : self.ntriples[i:batchend][:, 2]
+                        self.neg_head : self.ntriples[i:neg_batchend][:, 0].reshape(self.batchSize, (self.neg_rate + self.neg_rel_rate)),
+                        self.neg_tail : self.ntriples[i:neg_batchend][:, 1].reshape(self.batchSize, (self.neg_rate + self.neg_rel_rate)),
+                        self.neg_rel : self.ntriples[i:neg_batchend][:, 2].reshape(self.batchSize, (self.neg_rate + self.neg_rel_rate))
                         }
                     _ , cur_loss = self.sess.run([self.optimizer, self.loss], feed_dict=feed_dict)
                     loss = loss + cur_loss
