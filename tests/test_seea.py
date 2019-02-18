@@ -26,12 +26,14 @@ class Test_SEEA(unittest.TestCase):
             entity, attribute, relation, value, atriples, rtriples, \
                 entity_pairs, true_pairs = model.get_ear_model()
 
-        seea = SEEA(entity, attribute, relation, value, atriples, rtriples,
+        seea = SEEA(entity, attribute, relation, value, atriples, rtriples, entity_pairs,
                         dimension = params['dimension'],
                         learning_rate = params['learning_rate'],
                         batchSize = params['batchSize'],
                         margin = params['margin'],
-                        regularizer_scale = params['regularizer_scale'])
+                        regularizer_scale = params['regularizer_scale'],
+                        neg_rate = params['neg_rate'],
+                        neg_rel_rate = params['neg_rel_rate'])
 
         #Begin SEEA iterations, passing true pairs only to debug the alignments.
         results = seea.seea_iterate(entity_pairs, true_pairs, params['beta'],
@@ -49,9 +51,8 @@ class Test_SEEA(unittest.TestCase):
         seea.close_tf_session()
 
     def get_default_params(self):
-        return {'beta': 10, 'max_iter' : 10, 'dimension': 80,
-                'learning_rate' : 0.1, 'batchSize' : 10, 'margin' : 1,
-                'regularizer_scale' : 0.1, 'max_epochs' : 100}
+        return {'beta': 10, 'max_iter' : 10, 'dimension': 80, 'learning_rate' : 0.1, 'batchSize' : 10,
+                'margin' : 1, 'regularizer_scale' : 0.1, 'max_epochs' : 100, 'neg_rate' : 10, 'neg_rel_rate': 1}
 
     def test_seea_cora(self):
         self._test_seea(Cora, config.CORA_FILE_PREFIX, self.get_default_params())

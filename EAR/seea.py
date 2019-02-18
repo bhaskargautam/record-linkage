@@ -8,9 +8,9 @@ logger = get_logger('SEEA')
 
 class SEEA(object):
 
-    def __init__(self, entity, attribute, relation, value, atriples, rtriples,
+    def __init__(self, entity, attribute, relation, value, atriples, rtriples, entity_pairs,
                         dimension=10, learning_rate=0.1, batchSize=100, margin=1,
-                        regularizer_scale = 0.1):
+                        regularizer_scale = 0.1, neg_rate=1, neg_rel_rate=0):
         self.entity = entity
         self.attribute = attribute
         self.relation = relation
@@ -19,6 +19,9 @@ class SEEA(object):
         self.learning_rate = learning_rate
         self.batchSize = batchSize
         self.margin = margin
+        self.neg_rate = neg_rate
+        self.neg_rel_rate = neg_rel_rate
+        self.entity_pairs = entity_pairs
 
         # List of triples. Remove last incomplete batch if any.
         self.atriples = np.array(atriples[0: (len(atriples) - len(atriples)%batchSize)])
@@ -28,9 +31,11 @@ class SEEA(object):
 
         #Collect Negative Samples
         self.natriples = np.array(get_negative_samples(self.atriples, len(self.entity),
-                                        len(self.value), len(self.attribute)))
+                                        len(self.value), len(self.attribute), [],
+                                        neg_rate=neg_rate, neg_rel_rate =neg_rel_rate))
         self.nrtriples = np.array(get_negative_samples(self.rtriples, len(self.entity),
-                                        len(self.entity), len(self.relation)))
+                                        len(self.entity), len(self.relation), entity_pairs,
+                                        neg_rate=neg_rate, neg_rel_rate=neg_rel_rate))
 
         #Define Embedding Variables
         initializer = tf.contrib.layers.xavier_initializer(uniform = False)
@@ -51,16 +56,16 @@ class SEEA(object):
         self.head = tf.placeholder(tf.int32, shape=[self.batchSize])
         self.tail = tf.placeholder(tf.int32, shape=[self.batchSize])
         self.rel = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.neg_head = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.neg_tail = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.neg_rel = tf.placeholder(tf.int32, shape=[self.batchSize])
+        self.neg_head = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
+        self.neg_tail = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
+        self.neg_rel = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
 
         self.attr_head = tf.placeholder(tf.int32, shape=[self.batchSize])
         self.val = tf.placeholder(tf.int32, shape=[self.batchSize])
         self.attr = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.neg_attr_head = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.neg_val = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.neg_attr = tf.placeholder(tf.int32, shape=[self.batchSize])
+        self.neg_attr_head = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
+        self.neg_val = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
+        self.neg_attr = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
 
         #Load Embedding Vectors
         pos_h = tf.nn.embedding_lookup(self.ent_embeddings, self.head)
@@ -88,10 +93,10 @@ class SEEA(object):
         _ap_score = self._attr_calc(proj_pos_attr_h, pos_val, pos_attr)
         _an_score = self._attr_calc(proj_pos_attr_nh, pos_attr_nv, pos_attr_na)
 
-        p_score = tf.reduce_mean(_p_score)
-        n_score = tf.reduce_mean(_n_score)
-        ap_score = tf.reduce_mean(_ap_score)
-        an_score = tf.reduce_mean(_an_score)
+        p_score = tf.reduce_mean(_p_score, 1)
+        n_score = tf.reduce_mean(tf.reduce_mean(_n_score, 1), axis=1)
+        ap_score = tf.reduce_mean(_ap_score, 1)
+        an_score = tf.reduce_mean(tf.reduce_mean(_an_score, 1), axis=1)
         self.rel_loss = tf.reduce_mean(tf.maximum(p_score - n_score + self.margin, 0))
         self.attr_loss = tf.reduce_mean(tf.maximum(ap_score - an_score + self.margin, 0))
 
@@ -125,13 +130,14 @@ class SEEA(object):
                 #Relation Triple Encoder
                 for i in np.arange(0, len(self.rtriples), self.batchSize):
                     batchend = min(len(self.rtriples), i + self.batchSize)
+                    neg_batchend = min(len(self.nrtriples), i + self.batchSize*(self.neg_rate + self.neg_rel_rate))
                     feed_dict = {
                         self.head : self.rtriples[i:batchend][:,0],
                         self.tail : self.rtriples[i:batchend][:,1],
                         self.rel : self.rtriples[i:batchend][:,2],
-                        self.neg_head : self.nrtriples[i:batchend][:,0],
-                        self.neg_tail : self.nrtriples[i:batchend][:,1],
-                        self.neg_rel : self.nrtriples[i:batchend][:,2]
+                        self.neg_head : self.nrtriples[i:neg_batchend][:,0].reshape(self.batchSize, self.neg_rel_rate + self.neg_rate),
+                        self.neg_tail : self.nrtriples[i:neg_batchend][:,1].reshape(self.batchSize, self.neg_rel_rate + self.neg_rate),
+                        self.neg_rel : self.nrtriples[i:neg_batchend][:,2].reshape(self.batchSize, self.neg_rel_rate + self.neg_rate)
                     }
                     _, cur_rel_loss = self.sess.run([self.rel_optimizer, self.rel_loss],
                         feed_dict=feed_dict)
@@ -141,13 +147,15 @@ class SEEA(object):
                 #Attributional Triple Encoder
                 for i in np.arange(0, len(self.atriples), self.batchSize):
                     batchend = min(len(self.atriples), i + self.batchSize)
+                    neg_batchend = min(len(self.natriples), i + self.batchSize*(self.neg_rate + self.neg_rel_rate))
+
                     feed_dict = {
                         self.attr_head : self.atriples[i:batchend][:,0],
                         self.val : self.atriples[i:batchend][:,1],
                         self.attr : self.atriples[i:batchend][:,2],
-                        self.neg_attr_head : self.natriples[i:batchend][:,0],
-                        self.neg_val : self.natriples[i:batchend][:,1],
-                        self.neg_attr : self.natriples[i:batchend][:,2]
+                        self.neg_attr_head : self.natriples[i:neg_batchend][:,0].reshape(self.batchSize, self.neg_rel_rate + self.neg_rate),
+                        self.neg_val : self.natriples[i:neg_batchend][:,1].reshape(self.batchSize, self.neg_rel_rate + self.neg_rate),
+                        self.neg_attr : self.natriples[i:neg_batchend][:,2].reshape(self.batchSize, self.neg_rel_rate + self.neg_rate)
                     }
                     _, cur_attr_loss = self.sess.run([self.attr_optimizer, self.attr_loss],
                         feed_dict=feed_dict)
@@ -211,7 +219,8 @@ class SEEA(object):
             self.rtriples[0: (len(self.rtriples) - len(self.rtriples)%self.batchSize)])
 
         self.nrtriples = np.array(get_negative_samples(self.rtriples, len(self.entity),
-                                len(self.entity), len(self.relation)))
+                                len(self.entity), len(self.relation), self.entity_pairs,
+                                neg_rate=self.neg_rate, neg_rel_rate=self.neg_rel_rate))
         return len(self.rtriples)
 
     def seea_iterate(self, entity_pairs, true_pairs, beta=10, max_iter=100, max_epochs=100):

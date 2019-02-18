@@ -28,12 +28,14 @@ class Test_KR_EAR(unittest.TestCase):
             entity, attribute, relation, value, atriples, rtriples, \
                 entity_pairs, true_pairs = model.get_ear_model()
 
-        kr_ear = KR_EAR(entity, attribute, relation, value, atriples, rtriples,
+        kr_ear = KR_EAR(entity, attribute, relation, value, atriples, rtriples, entity_pairs,
                         dimension=params['dimension'],
                         learning_rate=params['learning_rate'],
                         margin=params['margin'],
                         regularizer_scale=params['regularizer_scale'],
-                        batchSize=params['batchSize'])
+                        batchSize=params['batchSize'],
+                        neg_rate=params['neg_rate'],
+                        neg_rel_rate=params['neg_rel_rate'])
         loss = kr_ear.train(max_epochs=params['epochs'])
         logger.info("Training Complete with loss: %f", loss)
 
@@ -61,7 +63,7 @@ class Test_KR_EAR(unittest.TestCase):
 
     def get_default_params(self):
         return {'learning_rate': 0.1, 'margin': 1, 'dimension': 80, 'epochs': 500,
-                'regularizer_scale' : 0.1, 'batchSize' : 100}
+                'regularizer_scale' : 0.1, 'batchSize' : 100, 'neg_rate' : 10, 'neg_rel_rate' : 1}
 
     def test_krear_cora(self):
         self._test_kr_ear(Cora, config.CORA_FILE_PREFIX, self.get_default_params())
@@ -79,12 +81,16 @@ class Test_KR_EAR(unittest.TestCase):
         margin= [0, 0.5, 1]
         regularizer_scale = [0.1, 0.2]
         epochs = [100, 500]
+        neg_rel_rate = [1, 2, 5]
+        neg_rate = [1, 5, 10]
 
         logger = get_logger('Test_KR_EAR_GridSearch.' + str(model))
         count = 0
         max_fscore = 0
-        for d, bs, lr, m, reg, e in itertools.product(dimension, batchSize, learning_rate, margin, regularizer_scale, epochs):
-            params = {'learning_rate': lr, 'margin': m, 'dimension': d, 'epochs': e, 'batchSize' : bs, 'regularizer_scale' : reg}
+        for d, bs, lr, m, reg, e, nr, nrr in \
+                itertools.product(dimension, batchSize, learning_rate, margin, regularizer_scale, epochs, neg_rate, neg_rel_rate):
+            params = {'learning_rate': lr, 'margin': m, 'dimension': d, 'epochs': e, 'batchSize' : bs,
+                            'regularizer_scale' : reg, 'neg_rate' : nr, 'neg_rel_rate' : nrr}
             logger.info("\nPARAMS: %s", str(params))
             count = count + 1
             cur_fscore = self._test_kr_ear(model, params)
@@ -94,14 +100,11 @@ class Test_KR_EAR(unittest.TestCase):
         logger.info("Ran total %d Tests.", count)
         logger.info("Max Fscore: %f", max_fscore)
 
-    @unittest.skip("OK")
     def test_grid_search_cora(self):
         self._test_grid_search(Cora, config.CORA_FILE_PREFIX)
 
-    @unittest.skip("OK")
     def test_grid_search_febrl(self):
         self._test_grid_search(FEBRL, config.FEBRL_FILE_PREFIX)
 
-    @unittest.skip("OK")
     def test_grid_search_census(self):
         self._test_grid_search(Census, config.CENSUS_FILE_PREFIX)
