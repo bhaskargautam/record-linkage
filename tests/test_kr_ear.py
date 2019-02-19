@@ -1,4 +1,5 @@
 import config
+import itertools
 import pandas as pd
 import recordlinkage
 import unittest
@@ -74,7 +75,7 @@ class Test_KR_EAR(unittest.TestCase):
     def test_krear_census(self):
         self._test_kr_ear(Census, config.CENSUS_FILE_PREFIX, self.get_default_params())
 
-    def _test_grid_search(self, model):
+    def _test_grid_search(self, model, file_prefix):
         dimension= [50, 80, 120]
         batchSize= [100]
         learning_rate= [0.1, 0.2]
@@ -93,7 +94,7 @@ class Test_KR_EAR(unittest.TestCase):
                             'regularizer_scale' : reg, 'neg_rate' : nr, 'neg_rel_rate' : nrr}
             logger.info("\nPARAMS: %s", str(params))
             count = count + 1
-            cur_fscore = self._test_kr_ear(model, params)
+            cur_fscore = self._test_kr_ear(model, file_prefix, params)
             if max_fscore <= cur_fscore:
                 max_fscore = cur_fscore
 
