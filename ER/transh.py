@@ -138,3 +138,10 @@ class TransH(object):
     def close_tf_session(self):
         tf.reset_default_graph()
         self.sess.close()
+
+    def __str__(self):
+        return "TransH"
+
+    def __del__(self):
+        self.close_tf_session()
+

@@ -177,3 +177,7 @@ class KR_EAR(object):
     def close_tf_session(self):
         tf.reset_default_graph()
         self.sess.close()
+
+    def __del__(self):
+        self.close_tf_session()
+

@@ -249,3 +249,7 @@ class SEEA(object):
         logger.info("End of SEEA iterations: Max iteration reached.")
         return predicted_pairs
 
+    def __del__(self):
+        self.close_tf_session()
+
+
