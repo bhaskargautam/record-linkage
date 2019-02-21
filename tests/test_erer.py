@@ -20,7 +20,7 @@ logger = get_logger('TestERER')
 class TestERER(unittest.TestCase):
     def _test_erer(self, dataset, file_prefix, er_algo, params):
         try:
-            graph = Graph_ERER(file_prefix + 'C')
+            graph = Graph_ERER(file_prefix)
             graph.load_kg_erer_model()
             entity, relation, triples, entity_pairs, true_pairs = graph.get_er_model()
         except IOError:
