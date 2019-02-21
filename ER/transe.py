@@ -5,7 +5,7 @@ from common import sigmoid, get_logger, get_negative_samples
 from scipy import spatial
 import timeit
 
-logger = get_logger('TransE')
+logger = get_logger('RL.ER.TransE')
 
 class TransE(object):
     """

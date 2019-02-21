@@ -13,12 +13,10 @@ from data.cora import Cora
 from data.febrl import FEBRL
 from data.census import Census
 
-logger = get_logger('TestLogisticRegression')
-
 class TestLogisticRegression(unittest.TestCase):
 
     def test_cora(self):
-        logger = get_logger('TestLogisticRegression.CORA')
+        logger = get_logger('RL.Test.LogisticRegression.CORA')
 
         #Read Train data in dataset A & B
         cora = Cora()
@@ -44,7 +42,7 @@ class TestLogisticRegression(unittest.TestCase):
         log_quality_results(logger, result, cora.true_test_links, len(cora.test_links))
 
     def test_febrl(self):
-        logger = get_logger('TestLogisticRegression.FEBRL')
+        logger = get_logger('RL.Test.LogisticRegression.FEBRL')
 
         febrl = FEBRL()
 
@@ -68,7 +66,7 @@ class TestLogisticRegression(unittest.TestCase):
         log_quality_results(logger, result, febrl.true_test_links, len(febrl.test_links))
 
     def test_census(self):
-        logger = get_logger('TestLogisticRegression.Census')
+        logger = get_logger('RL.Test.LogisticRegression.Census')
 
         census = Census()
 

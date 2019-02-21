@@ -4,7 +4,7 @@ import numpy as np
 from common import sigmoid, get_logger, get_negative_samples
 from scipy import spatial
 
-logger = get_logger('TransH')
+logger = get_logger('RL.ER.TransH')
 
 class TransH(object):
     """

@@ -16,7 +16,7 @@ from scipy import spatial
 class TestTransH(unittest.TestCase):
 
     def _test_transh(self, dataset, file_prefix, params):
-        logger = get_logger('TestTransH.' + str(file_prefix))
+        logger = get_logger('RL.Test.TransH.' + str(file_prefix))
         try:
             graph = Graph_ER(file_prefix)
             entity, relation, triples, entity_pairs, true_pairs = graph.load_kg_er_model()
@@ -44,7 +44,7 @@ class TestTransH(unittest.TestCase):
             #logger.info("i: %d, distance: %f true_pairs: %s", i, distance, entity_pairs[i] in true_pairs)
 
         #Write Embeddings to file
-        export_embeddings(file_prefix, 'TransH', entity, ent_embeddings)
+        export_embeddings('er', file_prefix, 'TransH', entity, ent_embeddings)
         optimal_threshold, max_fscore = get_optimal_threshold(result_prob, true_pairs)
 
         try:
@@ -81,7 +81,7 @@ class TestTransH(unittest.TestCase):
         neg_rel_rate = [1, 2, 5]
         neg_rate = [1, 5, 10]
 
-        logger = get_logger('TestGridSearchTransH.' + str(model))
+        logger = get_logger('RL.Test.GridSearch.TransH.' + str(model))
         count = 0
         max_fscore = 0
         for d, bs, lr, m, reg, e, nr, nrr in \

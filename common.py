@@ -4,14 +4,31 @@ import numpy as np
 import random
 import recordlinkage
 import pandas as pd
+import sys
 
 def get_logger(name, filename=config.DEFAULT_LOG_FILE, level=logging.DEBUG):
     log_file_path = config.BASE_OUTPUT_FOLDER + filename
-    logging.basicConfig(filename=log_file_path, level=level,
-        format='%(name)s %(asctime)s %(levelname)s %(message)s')
+    formatter = logging.Formatter('%(name)s %(asctime)s %(levelname)s %(message)s')
     logger = logging.getLogger(name)
-    logger.addHandler(logging.StreamHandler())
+
+    stream_handler = logging.StreamHandler(sys.stderr)
+    stream_handler.setLevel(level)
+    stream_handler.setFormatter(formatter)
+
+    file_handler = logging.FileHandler(filename=log_file_path)
+    file_handler.setLevel(level)
+    file_handler.setFormatter(formatter)
+    if not logger.handlers:
+        logger.addHandler(file_handler)
+    else:
+        logger.debug("Handlers already exist: %s", str(logger.handlers))
+
+    logging.basicConfig(level=level,
+                        format='%(name)s %(asctime)s %(levelname)s %(message)s')
+                        #handlers=[stream_handler, file_handler])
     return logger
+
+#root_logger = get_logger("RL")
 
 def write_results(results_for, fscore, accuracy, precision, recall, params):
     with open(config.BASE_OUTPUT_FOLDER + config.DEFAULT_RESULT_LOG_FILE, 'a+') as f:
@@ -51,7 +68,7 @@ def get_negative_samples(triples, total_head, total_tail, total_rel,
     all_rel_index = xrange(0, total_rel)
     tuple_triples = set(map(tuple, triples))
     tuple_ep = set(map(tuple, entity_pairs))
-    logger = get_logger("NEG_ATTR_SAMPLER")
+    logger = get_logger("RL.NEG_ATTR_SAMPLER")
 
     for (h, t, r) in triples:
         #logger.debug("Finding neg sample for %d, %d, %d", h, t, r)
@@ -93,8 +110,9 @@ def get_negative_samples(triples, total_head, total_tail, total_rel,
     logger.info("Number of negative triples: %d", len(ntriples))
     return ntriples
 
-def export_embeddings(model, method, entity, ent_emebedding):
-    base_file_name = config.BASE_OUTPUT_FOLDER + str(model) + "_" + str(method)
+def export_embeddings(graph_type, model, method, entity, ent_emebedding):
+    base_file_name = config.BASE_OUTPUT_FOLDER + str(graph_type) +  "/"
+    base_file_name = base_file_name + str(model) + "_" + str(method)
     with open(base_file_name + "_embedding.tsv", "w+") as f:
         for e in ent_emebedding:
             for i in range(0, len(e)):
@@ -109,7 +127,7 @@ def export_embeddings(model, method, entity, ent_emebedding):
                 f.write("%s\n" % str(e.encode('ascii', 'ignore').decode('ascii')))
 
 def get_optimal_threshold(result_prob, true_pairs):
-    logger = get_logger('OPTIMAL_THRESHOLD')
+    logger = get_logger('RL.OPTIMAL_THRESHOLD')
     max_fscore = 0.0
     optimal_threshold = 0
     for threshold in range(20,110, 5):
@@ -117,6 +135,7 @@ def get_optimal_threshold(result_prob, true_pairs):
         try:
             result = pd.MultiIndex.from_tuples([(e1, e2) for (e1, e2, d) in result_prob if d <= threshold])
             fscore = recordlinkage.fscore(true_pairs, result)
+            logger.info("For threshold: %f fscore: %f", threshold, fscore)
             if fscore >= max_fscore:
                 max_fscore = fscore
                 optimal_threshold = threshold

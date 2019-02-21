@@ -12,11 +12,7 @@ from common import get_logger, log_quality_results
 from data.cora import Cora
 from data.febrl import FEBRL
 from data.census import Census
-
 from ER.transh import TransH
-
-logger = get_logger('TestLogisticTransH')
-
 from recordlinkage.base import BaseCompareFeature
 
 class CompareEmbeddings(BaseCompareFeature):
@@ -35,7 +31,7 @@ class TestLogisticTransH(unittest.TestCase):
 
     def _test_logistic_transh(self, dataset, params):
         model = dataset()
-        logger = get_logger('TestLogisticTransH.' + str(model))
+        logger = get_logger('RL.Test.LogisticTransH.' + str(model))
         entity, relation, triples, entity_pairs, true_pairs = model.get_er_model()
         transh = TransH(entity, relation, triples,dimension=params['dimension'],
                         learning_rate=params['learning_rate'],

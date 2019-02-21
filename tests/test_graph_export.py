@@ -8,8 +8,6 @@ from ER.model import Graph_ER
 from EAR.model import Graph_EAR
 from ERER.model import Graph_ERER
 
-logger = get_logger('TestGraphExport')
-
 class TestGraphExport(unittest.TestCase):
 
     def _test_er_graph_export(self, dataset):

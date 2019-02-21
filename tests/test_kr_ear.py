@@ -13,13 +13,10 @@ from EAR.kr_ear import KR_EAR
 from EAR.model import Graph_EAR
 from scipy import spatial
 
-
-logger = get_logger('KR_EAR')
-
 class Test_KR_EAR(unittest.TestCase):
 
     def _test_kr_ear(self, dataset, file_prefix, params):
-        logger = get_logger('Test_KR_EAR.' + str(file_prefix))
+        logger = get_logger('RL.Test.KR_EAR.' + str(file_prefix))
         try:
             graph = Graph_EAR(file_prefix)
             entity, attribute, relation, value, atriples, rtriples, \
@@ -50,7 +47,7 @@ class Test_KR_EAR(unittest.TestCase):
             #logger.info("i: %d, distance: %f true_pairs: %s", i, distance, entity_pairs[i] in true_pairs)
 
         #Write Embeddings to file
-        export_embeddings(file_prefix, 'KR_EAR', entity, ent_embeddings)
+        export_embeddings('ear', file_prefix, 'KR_EAR', entity, ent_embeddings)
         optimal_threshold, max_fscore = get_optimal_threshold(result_prob, true_pairs)
 
         try:
@@ -85,7 +82,7 @@ class Test_KR_EAR(unittest.TestCase):
         neg_rel_rate = [1, 2, 5]
         neg_rate = [1, 5, 10]
 
-        logger = get_logger('Test_KR_EAR_GridSearch.' + str(model))
+        logger = get_logger('RL.Test.GridSearch.KR_EAR' + str(model))
         count = 0
         max_fscore = 0
         for d, bs, lr, m, reg, e, nr, nrr in \

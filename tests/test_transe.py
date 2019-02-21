@@ -5,7 +5,7 @@ import recordlinkage
 import unittest
 
 from common import (export_embeddings, get_optimal_threshold, get_logger,
-    log_quality_results, sigmoid)
+    log_quality_results, sigmoid, get_hits_at_k)
 from data.cora import Cora
 from data.febrl import FEBRL
 from data.census import Census
@@ -14,11 +14,9 @@ from ER.transe import TransE
 from scipy import spatial
 from sklearn.metrics import precision_recall_curve
 
-logger = get_logger('TestTransE')
-
 class TestTransE(unittest.TestCase):
     def _test_transe(self, dataset, file_prefix, params):
-        logger = get_logger('TestTransE.' + file_prefix)
+        logger = get_logger('RL.Test.TransE.' + file_prefix)
 
         #Load Graph Data
         try:
@@ -49,8 +47,10 @@ class TestTransE(unittest.TestCase):
             #logger.info("i: %d, distance: %f true_pairs: %s", i, distance, entity_pairs[i] in true_pairs)
 
         #Write Embeddings to file
-        export_embeddings(file_prefix, 'TransE', entity, ent_embeddings)
+        export_embeddings('er', file_prefix, 'TransE', entity, ent_embeddings)
         optimal_threshold, max_fscore = get_optimal_threshold(result_prob, true_pairs)
+        logger.info("Hits@1 = %f", get_hits_at_k(result_prob, true_pairs, k=1))
+        logger.info("Hits@10 = %f", get_hits_at_k(result_prob, true_pairs, k=10))
 
         try:
             params['threshold'] = optimal_threshold
@@ -63,7 +63,7 @@ class TestTransE(unittest.TestCase):
         return max_fscore
 
     def get_default_params(self):
-        return {'learning_rate': 0.1, 'margin': 1, 'dimension': 80, 'epochs': 500,
+        return {'learning_rate': 0.1, 'margin': 1, 'dimension': 80, 'epochs': 50,
                 'regularizer_scale' : 0.1, 'batchSize' : 100, 'neg_rate' : 8, 'neg_rel_rate': 2}
 
     def test_transe_cora(self):
@@ -86,6 +86,9 @@ class TestTransE(unittest.TestCase):
         neg_rate = [1, 5, 10]
         count = 0
         max_fscore = 0
+
+        logger = get_logger('RL.Test.GridSearch.TransE.' + file_prefix)
+
         for d, bs, lr, m, reg, e, nr, nrr in \
             itertools.product(dimension, batchSize, learning_rate, margin, regularizer_scale, epochs, neg_rate, neg_rel_rate):
             params = {'learning_rate': lr, 'margin': m, 'dimension': d, 'epochs': e, 'batchSize' : bs,

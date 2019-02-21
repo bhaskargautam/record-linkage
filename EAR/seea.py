@@ -4,7 +4,7 @@ import tensorflow as tf
 from common import sigmoid, get_logger, get_negative_samples
 from scipy import spatial
 
-logger = get_logger('SEEA')
+logger = get_logger('RL.EAR.SEEA')
 
 class SEEA(object):
 

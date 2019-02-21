@@ -4,7 +4,7 @@ import tensorflow as tf
 from common import sigmoid, get_logger, get_negative_samples
 from scipy import spatial
 
-logger = get_logger('TransE')
+logger = get_logger('RL.EAR.KR_EAR')
 
 class KR_EAR(object):
 

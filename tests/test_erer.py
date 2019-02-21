@@ -15,8 +15,6 @@ from ER.transh import TransH
 from scipy import spatial
 from sklearn.metrics import precision_recall_curve
 
-logger = get_logger('TestERER')
-
 class TestERER(unittest.TestCase):
     def _test_erer(self, dataset, file_prefix, er_algo, params):
         try:
@@ -40,20 +38,20 @@ class TestERER(unittest.TestCase):
                         neg_rel_rate=params['neg_rel_rate'])
         loss = er_model.train(max_epochs=params['epochs'])
 
-        logger = get_logger('TestERER.' + file_prefix + "." + str(er_model))
+        logger = get_logger('RL.Test.ERER.' + file_prefix + "." + str(er_model))
         logger.info("Training Complete with loss: %f", loss)
 
         ent_embeddings = er_model.get_ent_embeddings()
         result_prob = []
         for i in range(0, len(entity_pairs)):
-            distance = sigmoid(abs(spatial.distance.cosine(
+            distance = abs(spatial.distance.cosine(
                                 ent_embeddings[entity_pairs[i][0]],
-                                ent_embeddings[entity_pairs[i][1]])))
+                                ent_embeddings[entity_pairs[i][1]]))
             result_prob.append((entity_pairs[i][0], entity_pairs[i][1], distance))
             #logger.info("i: %d, distance: %f true_pairs: %s", i, distance, entity_pairs[i] in true_pairs)
 
         #Write Embeddings to file
-        export_embeddings("erer_" + file_prefix, str(er_model), entity, ent_embeddings)
+        export_embeddings("erer", file_prefix, str(er_model), entity, ent_embeddings)
         optimal_threshold, max_fscore = get_optimal_threshold(result_prob, true_pairs)
 
         try:

@@ -8,7 +8,7 @@ import xml.etree.ElementTree
 
 from common import get_logger
 
-logger = get_logger('CORA')
+logger = get_logger('RL.Data.CORA')
 
 class Cora(object):
     """Class to read Cora Dataset"""

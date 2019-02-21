@@ -6,7 +6,7 @@ import re
 
 from common import get_logger
 
-logger = get_logger('Census')
+logger = get_logger('RL.Data.Census')
 
 class Census(object):
     """Read Census Dataset"""

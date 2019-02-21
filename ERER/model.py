@@ -3,7 +3,7 @@ import pandas as pd
 
 from common import get_logger
 
-logger = get_logger('GRAPH_ERER')
+logger = get_logger('RL.ERER.GRAPH_ERER')
 
 class Graph_ERER(object):
     entityA = None

@@ -5,7 +5,7 @@ import pandas as pd
 from common import get_logger
 from recordlinkage.datasets import load_febrl4
 
-logger = get_logger('FEBRL')
+logger = get_logger('RL.Data.FEBRL')
 
 class FEBRL(object):
     """Class to Read FEBRL Dataset"""
