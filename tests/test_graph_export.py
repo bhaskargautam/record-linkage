@@ -6,6 +6,7 @@ from data.febrl import FEBRL
 from data.census import Census
 from ER.model import Graph_ER
 from EAR.model import Graph_EAR
+from ERER.model import Graph_ERER
 
 logger = get_logger('TestGraphExport')
 
@@ -55,3 +56,28 @@ class TestGraphExport(unittest.TestCase):
 
     def test_ear_census(self):
         self._test_ear_graph_export(Census)
+
+    def _test_erer_graph_export(self, dataset):
+        model = dataset()
+        entA, entB, relA, relB, triA, triB, entity_pairs, prior_pairs, true_pairs = model.get_erer_model()
+        graph = Graph_ERER(str(model))
+        graph.export_kg_erer_model(entA, entB, relA, relB, triA, triB, entity_pairs, prior_pairs, true_pairs)
+        eA, eB, rA, rB, tA, tB, ep, pp, tp = graph.load_kg_erer_model()
+        self.assertEqual(len(eA), len(entA))
+        self.assertEqual(len(eB), len(entB))
+        self.assertEqual(len(rA), len(relA))
+        self.assertEqual(len(rB), len(relB))
+        self.assertEqual(len(tA), len(triA))
+        self.assertEqual(len(tB), len(triB))
+        self.assertEqual(len(ep), len(entity_pairs))
+        self.assertEqual(len(pp), len(prior_pairs))
+        self.assertEqual(len(tp), len(true_pairs))
+
+    def test_erer_cora(self):
+        self._test_erer_graph_export(Cora)
+
+    def test_erer_febrl(self):
+        self._test_erer_graph_export(FEBRL)
+
+    def test_erer_census(self):
+        self._test_erer_graph_export(Census)

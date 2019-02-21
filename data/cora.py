@@ -212,7 +212,7 @@ class Cora(object):
                         triples.append((entity_id, value_id, relation_id))
 
         #Add new relation for aligned pairs
-        relation.append('aligned_pairs')
+        relation.append('same_as')
         alligned_relation_id = len(relation) - 1
 
         logger.info("Number of entities: %d", len(entity))
@@ -317,10 +317,8 @@ class Cora(object):
                         atriples.append((entity_id, value_id, attribute_id))
 
         #Add 2 new relations for aligned and non-aligned pairs
-        relation.append('aligned_pairs')
+        relation.append('same_as')
         alligned_relation_id = len(relation) - 1
-        relation.append('non-aligned_pairs')
-        non_alligned_relation_id = len(relation) - 1
 
         logger.info("Number of entities: %d", len(entity))
         logger.info("Number of values: %d", len(attr_value))
@@ -346,6 +344,122 @@ class Cora(object):
 
         true_pairs = pd.MultiIndex.from_tuples(true_pairs)
         return (entity, attribute, relation, attr_value, atriples, rtriples, entity_pairs, true_pairs)
+
+    def get_erer_model(self):
+        entityA = []
+        entityB = []
+        relationA = ['same_as']
+        relationB = ['same_as']
+        triplesA = []
+        triplesB = []
+        dni_mapping = {}
+        enitity_id_mapping = {}
+
+        entity, relation, triples = None, None, None
+
+        for dni in self.data:
+            for record in self.data[dni]:
+                id = str(record.get('id'))
+                if id in self.trainDataA['id'].tolist() or id in self.testDataA['id'].tolist():
+                    entity = entityA
+                    relation = relationA
+                    triples = triplesA
+                else:
+                    entity = entityB
+                    relation = relationB
+                    triples = triplesB
+
+                entity.append("cora" + str(record.get("id") + "_" + str(dni)))
+                entity_id = len(entity) - 1;
+                enitity_id_mapping[str(record.get("id"))] = entity_id
+
+                dni_mapping[str(entity_id)] = dni
+                xeid = xml.etree.ElementTree.Element("entity_id")
+                xeid.text = str(entity_id)
+                record.insert(1, xeid)
+
+                for rel in record._children:
+                    if rel.tag in ['Pages', 'booktile', 'month', 'entity_id']:
+                        continue #These Releation only appear once, so skip.
+
+                    if rel.tag in relation:
+                        relation_id = relation.index(rel.tag)
+                    else:
+                        relation.append(rel.tag)
+                        relation_id = len(relation) - 1
+
+                    value = None
+                    if not rel.text:
+                        continue
+                    else:
+                        value = unicode(rel.text.strip())
+                        value = value.replace('(', '')
+                        value = value.replace(')', '')
+                        value = value.replace(';', '')
+                        if rel.tag in ['date', 'year']:
+                            value = value.replace('.', '')
+                            value = value.replace(',', '')
+                        elif rel.tag == 'pages':
+                            m = re.search('[0-9\-]+', value)
+                            if m:
+                                value = m.group()
+                            else:
+                                continue
+                        value = value.lower()
+
+                    if rel.tag == 'author':
+                        #KG2: separate enitity for each author
+                        authors = re.split(',|and|&', value)
+
+                        for author_name in authors:
+                            author_name = author_name.strip()
+                            if len(author_name) < 4:
+                                continue
+                            if author_name in entity:
+                                author_id = entity.index(author_name)
+                            else:
+                                entity.append(author_name)
+                                author_id = len(entity) - 1
+                            triples.append((entity_id, author_id, relation_id))
+                    elif value in entity:
+                        value_id = entity.index(value)
+                        triples.append((entity_id, value_id, relation_id))
+                    else:
+                        entity.append(value)
+                        value_id = len(entity) - 1;
+                        triples.append((entity_id, value_id, relation_id))
+
+        logger.info("Number of entitiesA: %d", len(entityA))
+        logger.info("Number of entitiesB: %d", len(entityB))
+        logger.info("Number of relationsA: %d", len(relationA))
+        logger.info("Number of relationsB: %d", len(relationB))
+        logger.info("Number of TriplesA: %d", len(triplesA))
+        logger.info("Number of TriplesB: %d", len(triplesB))
+
+        #Extract candidate links and true links
+        prior_pairs = []
+        for a in self.trainDataA['id']:
+            a_id = enitity_id_mapping[str(a)]
+            for b in self.trainDataB['id']:
+                b_id = enitity_id_mapping[str(b)]
+                if dni_mapping[str(a_id)] == dni_mapping[str(b_id)]:
+                    prior_pairs.append((a_id,b_id))
+
+        entity_pairs = []
+        true_pairs = []
+        for a in self.testDataA['id']:
+            a_id = enitity_id_mapping[str(a)]
+            for b in self.testDataB['id']:
+                b_id = enitity_id_mapping[str(b)]
+                entity_pairs.append((a_id,b_id))
+                if dni_mapping[str(a_id)] == dni_mapping[str(b_id)]:
+                    true_pairs.append((a_id,b_id))
+
+        logger.info("Number of entity pairs: %d", len(entity_pairs))
+        logger.info("Number of true pairs: %d", len(true_pairs))
+
+        true_pairs = pd.MultiIndex.from_tuples(true_pairs)
+        return (entityA, entityB, relationA, relationB, triplesA, triplesB, entity_pairs, prior_pairs, true_pairs)
 
     def __str__(self):
         return config.CORA_FILE_PREFIX

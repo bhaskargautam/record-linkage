@@ -78,7 +78,7 @@ class Census(object):
 
     def get_er_model(self):
         entity = []
-        relation = ["name", "surname", "surname2", "yob", "civil", "occupation"]
+        relation = ["same_as", "name", "surname", "surname2", "yob", "civil", "occupation"]
         triples = []
         dni_mapping = {}
         surname_mapping = {}
@@ -207,7 +207,7 @@ class Census(object):
     def get_ear_model(self):
         entity = []
         attribute = ["name", "surname", "surname2", "yob", "civil", "occupation"]
-        relation = []
+        relation = ["same_as"]
         atriples = []
         rtriples = []
         attr_value = []
@@ -338,6 +338,149 @@ class Census(object):
 
         true_pairs = pd.MultiIndex.from_tuples(true_pairs)
         return (entity, attribute, relation, attr_value, atriples, rtriples, entity_pairs, true_pairs)
+
+    def get_erer_model(self):
+        entityA = []
+        entityB = []
+        relationA = ["same_as", "name", "surname", "surname2", "yob", "civil", "occupation"]
+        relationB = ["same_as", "name", "surname", "surname2", "yob", "civil", "occupation"]
+        triplesA = []
+        triplesB = []
+        dni_mapping = {}
+        surname_mapping = {}
+        data_1940 = []
+        data_1936 = []
+        data_1930 = []
+        data_1924 = []
+
+        for (dataset, data, entity, relation, triples) in [ \
+                    (self.trainDataA, data_1940, entityA, relationA, triplesA),
+                    (self.trainDataB, data_1936, entityB, relationB, triplesB),
+                    (self.testDataA, data_1930, entityA, relationA, triplesA),
+                    (self.testDataB, data_1924, entityB, relationB, triplesB)]:
+
+            for record in dataset.iterrows():
+                record = record[1]
+
+                #new entity for each record
+                entity.append(str(record[1]) + "_" + str(record[3]))
+                individual_id = len(entity) - 1
+
+                #entity for each household
+                if record[2] in entity:
+                    household_id = entity.index(record[2])
+                else:
+                    entity.append(record[2])
+                    household_id = len(entity) - 1
+
+                #populate dicticnaries for DNI and Surname
+                dni_mapping[individual_id] = record[3]
+                surname_mapping[individual_id] = record[12]
+                data.append(individual_id)
+
+                #Entity for Normalized Name
+                if record[10] in entity:
+                    name_id = entity.index(record[10])
+                else:
+                    entity.append(record[10])
+                    name_id = len(entity) - 1
+
+                #Entity for Normalized Surname
+                if record[11] in entity:
+                    surname_id = entity.index(record[11])
+                else:
+                    entity.append(record[11])
+                    surname_id = len(entity) - 1
+
+                #Entity for Normalized Surname2
+                if record[12] in entity:
+                    surname2_id = entity.index(record[12])
+                else:
+                    entity.append(record[12])
+                    surname2_id = len(entity) - 1
+
+                #Year of Birth
+                if record[17] and record[17] in entity:
+                    yob_id = entity.index(record[17])
+                elif record[17]:
+                    entity.append(record[17])
+                    yob_id = len(entity) - 1
+                else:
+                    #check DOB for year of birth
+                    year = re.search('1[7-9][0-9]{2}', str(record[16]))
+                    if year:
+                        year = year.group()
+                    elif record[18]:
+                        #compute year of birth from age
+                        try:
+                            year = str(int(record[4]) - int(record[18]))
+                        except ValueError:
+                            year = "0000"
+                    else:
+                        year = "0000"
+
+                    if year in entity:
+                        yob_id = entity.index(year)
+                    else:
+                        entity.append(year)
+                        yob_id = len(entity) - 1
+
+                #Civil Status
+                if record[19] in entity:
+                    civil_id = entity.index(record[19])
+                else:
+                    entity.append(record[19])
+                    civil_id = len(entity) - 1
+
+                #Normalized relationship with head
+                if record[21] in relation:
+                    relation_id = relation.index(record[21])
+                else:
+                    relation.append(record[21])
+                    relation_id = len(relation) - 1
+
+                #Normalized occupation
+                if record[29] in entity:
+                    occupation_id = entity.index(record[29])
+                else:
+                    entity.append(record[29])
+                    occupation_id = len(entity) - 1
+
+                #add triples
+                triples.append((individual_id, household_id, relation_id))
+                triples.append((individual_id, name_id, relation.index("name")))
+                triples.append((individual_id, surname_id, relation.index("surname")))
+                triples.append((individual_id, surname2_id, relation.index("surname2")))
+                triples.append((individual_id, yob_id, relation.index("yob")))
+                triples.append((individual_id, civil_id, relation.index("civil")))
+                triples.append((individual_id, occupation_id, relation.index("occupation")))
+
+            logger.info("Number of entities: %d", len(entity))
+            logger.info("Number of relations: %d", len(relation))
+            logger.info("Number of Triples: %d", len(triples))
+
+        #Extract candidate pairs and true pairs
+        entity_pairs = []
+        true_pairs = []
+        for e1 in data_1930:
+            for e2 in data_1924:
+                if surname_mapping[e1] == surname_mapping[e2]:
+                    entity_pairs.append((e1, e2))
+                    if dni_mapping[e1] == dni_mapping[e2]:
+                        true_pairs.append((e1,e2))
+
+        prior_pairs = []
+        for e1 in data_1940:
+            for e2 in data_1936:
+                if dni_mapping[e1] == dni_mapping[e2] and dni_mapping[e1]:
+                    prior_pairs.append((e1,e2))
+
+        logger.info("Number of prior pairs: %d", len(prior_pairs))
+        logger.info("Number of entity pairs: %d", len(entity_pairs))
+        logger.info("Number of true pairs: %d", len(true_pairs))
+
+        true_pairs = pd.MultiIndex.from_tuples(true_pairs)
+        return (entityA, entityB, relationA, relationB, triplesA, triplesB, entity_pairs, prior_pairs, true_pairs)
 
     def __str__(self):
         return config.CENSUS_FILE_PREFIX
