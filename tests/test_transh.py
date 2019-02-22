@@ -4,8 +4,13 @@ import pandas as pd
 import recordlinkage
 import unittest
 
-from common import (export_embeddings, get_optimal_threshold, get_logger,
-    log_quality_results, sigmoid)
+from common import (
+    export_embeddings,
+    export_result_prob,
+    get_optimal_threshold,
+    get_logger,
+    log_quality_results,
+    sigmoid)
 from data.cora import Cora
 from data.febrl import FEBRL
 from data.census import Census
@@ -45,6 +50,7 @@ class TestTransH(unittest.TestCase):
 
         #Write Embeddings to file
         export_embeddings('er', file_prefix, 'TransH', entity, ent_embeddings)
+        export_result_prob(dataset, 'er', file_prefix, 'TransH', entity, result_prob, true_pairs)
         optimal_threshold, max_fscore = get_optimal_threshold(result_prob, true_pairs)
 
         try:

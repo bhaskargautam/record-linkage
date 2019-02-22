@@ -125,6 +125,29 @@ def export_embeddings(graph_type, model, method, entity, ent_emebedding):
                 f.write("%s\n" % str(e))
             except UnicodeEncodeError:
                 f.write("%s\n" % str(e.encode('ascii', 'ignore').decode('ascii')))
+    return True
+
+def export_result_prob(dataset, graph_type, dataset_prefix, method,
+                            entity, result_prob, true_pairs):
+    base_file_name = config.BASE_OUTPUT_FOLDER + str(graph_type) +  "/"
+    base_file_name = base_file_name + str(dataset_prefix) + "_" + str(method)
+    result_prob = sorted(result_prob, key=lambda x: x[2])
+    false_positives = []
+    with open(base_file_name + "_result_prob.tsv", "w+") as f:
+        for (e1, e2, d) in result_prob:
+            f.write("%s\t%s\t%f\t%s\n" % (entity[e1], entity[e2], d, (e1, e2) in true_pairs))
+            if (e1, e2) not in true_pairs and \
+                    len(false_positives) < config.MAX_FALSE_POSITIVE_TO_LOG:
+                false_positives.append((e1, e2))
+
+    #Log full information about top False Positives
+    model = dataset()
+    with open(base_file_name + "_false_positives.txt", "w+") as f:
+        for (e1, e2) in false_positives:
+            f.write("\nRecord A:\n%s\n" % str(model.get_entity_information(entity[e1])))
+            f.write("Record B:\n%s\n" % str(model.get_entity_information(entity[e2])))
+
+    return True
 
 def get_optimal_threshold(result_prob, true_pairs):
     logger = get_logger('RL.OPTIMAL_THRESHOLD')

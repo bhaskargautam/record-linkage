@@ -4,8 +4,12 @@ import pandas as pd
 import recordlinkage
 import unittest
 
-from common import (export_embeddings, get_optimal_threshold, get_logger,
-            log_quality_results, sigmoid)
+from common import (
+    export_embeddings,
+    export_result_prob,
+    get_logger,
+    get_optimal_threshold,
+    log_quality_results)
 from data.cora import Cora
 from data.febrl import FEBRL
 from data.census import Census
@@ -48,6 +52,8 @@ class Test_KR_EAR(unittest.TestCase):
 
         #Write Embeddings to file
         export_embeddings('ear', file_prefix, 'KR_EAR', entity, ent_embeddings)
+        export_result_prob(dataset, 'ear', file_prefix, 'KR_EAR', entity, result_prob, true_pairs)
+
         optimal_threshold, max_fscore = get_optimal_threshold(result_prob, true_pairs)
 
         try:

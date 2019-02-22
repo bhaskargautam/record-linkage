@@ -461,5 +461,20 @@ class Cora(object):
         true_pairs = pd.MultiIndex.from_tuples(true_pairs)
         return (entityA, entityB, relationA, relationB, triplesA, triplesB, entity_pairs, prior_pairs, true_pairs)
 
+    def get_entity_information(self, entity_name):
+        try:
+            ent_id = entity_name.split('_')[0][4:]
+            logger.info("Searching for entity id: %s", ent_id)
+        except Exception as e:
+            logger.error(e)
+            logger.error("Failed to get entity id for %s", str(entity_name))
+            return None
+
+        for dataset in [self.trainDataA, self.trainDataB, self.testDataA, self.testDataB]:
+            e = [e for e in dataset.iterrows() if e[1]['id'] == ent_id]
+            if len(e):
+                return e[0]
+        return None
+
     def __str__(self):
         return config.CORA_FILE_PREFIX

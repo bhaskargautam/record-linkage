@@ -4,8 +4,13 @@ import pandas as pd
 import recordlinkage
 import unittest
 
-from common import (export_embeddings, get_optimal_threshold, get_logger,
-    log_quality_results, sigmoid, get_hits_at_k)
+from common import (
+    export_embeddings,
+    export_result_prob,
+    get_optimal_threshold,
+    get_logger,
+    log_quality_results,
+    sigmoid)
 from data.cora import Cora
 from data.febrl import FEBRL
 from data.census import Census
@@ -48,9 +53,8 @@ class TestTransE(unittest.TestCase):
 
         #Write Embeddings to file
         export_embeddings('er', file_prefix, 'TransE', entity, ent_embeddings)
+        export_result_prob(dataset, 'er', file_prefix, 'TransE', entity, result_prob, true_pairs)
         optimal_threshold, max_fscore = get_optimal_threshold(result_prob, true_pairs)
-        logger.info("Hits@1 = %f", get_hits_at_k(result_prob, true_pairs, k=1))
-        logger.info("Hits@10 = %f", get_hits_at_k(result_prob, true_pairs, k=10))
 
         try:
             params['threshold'] = optimal_threshold
@@ -63,7 +67,7 @@ class TestTransE(unittest.TestCase):
         return max_fscore
 
     def get_default_params(self):
-        return {'learning_rate': 0.1, 'margin': 1, 'dimension': 80, 'epochs': 50,
+        return {'learning_rate': 0.1, 'margin': 1, 'dimension': 80, 'epochs': 500,
                 'regularizer_scale' : 0.1, 'batchSize' : 100, 'neg_rate' : 8, 'neg_rel_rate': 2}
 
     def test_transe_cora(self):

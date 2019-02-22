@@ -3,7 +3,11 @@ import itertools
 import pandas as pd
 import unittest
 
-from common import export_embeddings, get_logger, log_quality_results, sigmoid
+from common import (
+    export_embeddings,
+    export_result_prob,
+    get_logger,
+    log_quality_results)
 from data.cora import Cora
 from data.febrl import FEBRL
 from data.census import Census
@@ -45,6 +49,12 @@ class Test_SEEA(unittest.TestCase):
 
         ent_embeddings = seea.get_ent_embeddings()
         export_embeddings('ear', file_prefix, 'SEEA', entity, ent_embeddings)
+
+        result_prob = []
+        for (e1, e2) in entity_pairs:
+            distance = abs(spatial.distance.cosine(ent_embeddings[e1], ent_embeddings[e2]))
+            result_prob.append((e1, e2, distance))
+        export_result_prob(dataset, 'ear', file_prefix, 'SEEA', entity, result_prob, true_pairs)
 
         seea.close_tf_session()
 

@@ -3,9 +3,12 @@ import itertools
 import pandas as pd
 import recordlinkage
 import unittest
-
-from common import (export_embeddings, get_optimal_threshold, get_logger,
-    log_quality_results, sigmoid)
+from common import (
+    export_embeddings,
+    export_result_prob,
+    get_logger,
+    get_optimal_threshold,
+    log_quality_results)
 from data.cora import Cora
 from data.febrl import FEBRL
 from data.census import Census
@@ -52,6 +55,8 @@ class TestERER(unittest.TestCase):
 
         #Write Embeddings to file
         export_embeddings("erer", file_prefix, str(er_model), entity, ent_embeddings)
+        export_result_prob(dataset, 'erer', file_prefix, str(er_model), entity, result_prob, true_pairs)
+
         optimal_threshold, max_fscore = get_optimal_threshold(result_prob, true_pairs)
 
         try:
