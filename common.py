@@ -25,10 +25,7 @@ def get_logger(name, filename=config.DEFAULT_LOG_FILE, level=logging.DEBUG):
 
     logging.basicConfig(level=level,
                         format='%(name)s %(asctime)s %(levelname)s %(message)s')
-                        #handlers=[stream_handler, file_handler])
     return logger
-
-#root_logger = get_logger("RL")
 
 def write_results(results_for, fscore, accuracy, precision, recall, params):
     with open(config.BASE_OUTPUT_FOLDER + config.DEFAULT_RESULT_LOG_FILE, 'a+') as f:
@@ -167,3 +164,70 @@ def get_optimal_threshold(result_prob, true_pairs):
             continue
     logger.info("Found optimal threshold %f with max_fscore: %f", optimal_threshold, max_fscore)
     return (optimal_threshold, max_fscore)
+
+### INFORMATION RETRIEVAL METRICS
+
+def get_precision_at_k(result_prob, true_pairs, k=1):
+    result_prob = sorted(result_prob, key=(lambda x: x[2]))
+    true_results = [(e1, e2) for (e1,e2,d) in result_prob[:k] if (e1, e2) in true_pairs]
+    return (len(true_results) * 1.0) / k
+
+def get_average_precision(result_prob, true_pairs):
+    result_prob = sorted(result_prob, key=(lambda x: x[2]))
+    k = 0
+    total_precision = 0
+    for i in range(1, len(true_pairs) + 1):
+        while k < len(result_prob):
+            if (result_prob[k][0], result_prob[k][1]) in true_pairs:
+                total_precision = total_precision + (float(i) / (k+1))
+                k = k + 1
+                break
+            else:
+                k = k + 1
+
+    if len(true_pairs):
+        return total_precision / float(len(true_pairs))
+    return 0
+
+def get_mean_reciprocal_rank(result_prob, true_pairs):
+    reciprocal_rank_sum = 0.0
+    for (e1, e2) in true_pairs:
+        results = [(h,t,d) for (h,t,d) in result_prob if h == e1]
+        results = sorted(results, key=lambda x: x[2])
+        for i in range(0,len(results)):
+            if results[i][1] == e2:
+                reciprocal_rank_sum = reciprocal_rank_sum + 1/(i + 1)
+
+    if len(true_pairs):
+        return reciprocal_rank_sum / len(true_pairs)
+    return 0
+
+def get_mean_rank(result_prob, true_pairs):
+    rank_sum = 0
+    for (e1, e2) in true_pairs:
+        results = [(h,t,d) for (h,t,d) in result_prob if h == e1]
+        results = sorted(results, key=lambda x: x[2])
+        for i in range(0,len(results)):
+            if results[i][1] == e2:
+                rank_sum = rank_sum + i + 1
+
+    if len(true_pairs):
+        return rank_sum / float(len(true_pairs))
+    return 0
+
+
+def get_mean_average_precision_at_k(result_prob, true_pairs, k=1):
+    rank_sum = 0
+    average_precision = 0.0
+    for (e1, e2) in true_pairs:
+        tp = 0
+        results = [(h,t,d) for (h,t,d) in result_prob if h == e1]
+        results = sorted(results, key=lambda x: x[2])
+        for i in range(0,k):
+            if results[i][1] == e2:
+                tp = tp + 1
+        average_precision = average_precision + (float(tp)/k)
+
+    if len(true_pairs):
+        return average_precision / len(true_pairs)
+    return 0
