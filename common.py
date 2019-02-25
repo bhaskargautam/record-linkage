@@ -191,15 +191,23 @@ def get_average_precision(result_prob, true_pairs):
 
 def get_mean_reciprocal_rank(result_prob, true_pairs):
     reciprocal_rank_sum = 0.0
-    for (e1, e2) in true_pairs:
+    tp_map = {}
+    for e1, e2 in true_pairs:
+        if e1 in tp_map:
+            tp_map[e1].append(e2)
+        else:
+            tp_map[e1] = [e2]
+
+    for e1 in tp_map:
         results = [(h,t,d) for (h,t,d) in result_prob if h == e1]
         results = sorted(results, key=lambda x: x[2])
         for i in range(0,len(results)):
-            if results[i][1] == e2:
+            if results[i][1] in tp_map[e1]:
                 reciprocal_rank_sum = reciprocal_rank_sum + 1.0/(i + 1)
+                break
 
-    if len(true_pairs):
-        return reciprocal_rank_sum / len(true_pairs)
+    if len(tp_map):
+        return reciprocal_rank_sum / len(tp_map)
     return 0
 
 def get_mean_rank(result_prob, true_pairs):
@@ -216,7 +224,6 @@ def get_mean_rank(result_prob, true_pairs):
     return 0
 
 def get_mean_average_precision(result_prob, true_pairs):
-    rank_sum = 0
     average_precision = 0.0
     tp_map = {}
     for e1, e2 in true_pairs:
