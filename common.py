@@ -175,7 +175,7 @@ def get_precision_at_k(result_prob, true_pairs, k=1):
 def get_average_precision(result_prob, true_pairs):
     result_prob = sorted(result_prob, key=(lambda x: x[2]))
     k = 0
-    total_precision = 0
+    total_precision = 0.0
     for i in range(1, len(true_pairs) + 1):
         while k < len(result_prob):
             if (result_prob[k][0], result_prob[k][1]) in true_pairs:
@@ -196,7 +196,7 @@ def get_mean_reciprocal_rank(result_prob, true_pairs):
         results = sorted(results, key=lambda x: x[2])
         for i in range(0,len(results)):
             if results[i][1] == e2:
-                reciprocal_rank_sum = reciprocal_rank_sum + 1/(i + 1)
+                reciprocal_rank_sum = reciprocal_rank_sum + 1.0/(i + 1)
 
     if len(true_pairs):
         return reciprocal_rank_sum / len(true_pairs)
@@ -215,19 +215,40 @@ def get_mean_rank(result_prob, true_pairs):
         return rank_sum / float(len(true_pairs))
     return 0
 
-
-def get_mean_average_precision_at_k(result_prob, true_pairs, k=1):
+def get_mean_average_precision(result_prob, true_pairs):
     rank_sum = 0
     average_precision = 0.0
-    for (e1, e2) in true_pairs:
-        tp = 0
+    tp_map = {}
+    for e1, e2 in true_pairs:
+        if e1 in tp_map:
+            tp_map[e1].append(e2)
+        else:
+            tp_map[e1] = [e2]
+
+    for e1 in tp_map:
+        total_precision = 0.0
+        true_count = 0
         results = [(h,t,d) for (h,t,d) in result_prob if h == e1]
         results = sorted(results, key=lambda x: x[2])
-        for i in range(0,k):
-            if results[i][1] == e2:
-                tp = tp + 1
-        average_precision = average_precision + (float(tp)/k)
+        for i in range(0, len(results)):
+            if results[i][1] in tp_map[e1]:
+                true_count = true_count + 1
+                total_precision = total_precision + float(true_count)/(i+1)
 
-    if len(true_pairs):
-        return average_precision / len(true_pairs)
+        average_precision = average_precision + (total_precision/float(len(tp_map[e1])))
+
+    if len(tp_map):
+        return average_precision / len(tp_map)
     return 0
+
+def log_ir_metrics(logger, result_prob, true_pairs):
+    logger.info("Precision@1 = %f", get_precision_at_k(result_prob, true_pairs, k=1))
+    logger.info("Precision@5 = %f", get_precision_at_k(result_prob, true_pairs, k=5))
+    logger.info("Precision@10 = %f", get_precision_at_k(result_prob, true_pairs, k=10))
+    logger.info("Precision@20 = %f", get_precision_at_k(result_prob, true_pairs, k=20))
+
+    logger.info("Average Precision (AP) = %f", get_average_precision(result_prob, true_pairs))
+    logger.info("Mean Rank (MR)= %f", get_mean_rank(result_prob, true_pairs))
+    logger.info("Mean Reciprocal Rank (MRR)= %f", get_mean_reciprocal_rank(result_prob, true_pairs))
+    logger.info("Mean Average Precision (MAP)= %f", get_mean_average_precision(result_prob, true_pairs))
+    return True
