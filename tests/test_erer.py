@@ -8,6 +8,7 @@ from common import (
     export_result_prob,
     get_logger,
     get_optimal_threshold,
+    log_ir_metrics,
     log_quality_results)
 from data.cora import Cora
 from data.febrl import FEBRL
@@ -65,6 +66,8 @@ class TestERER(unittest.TestCase):
             log_quality_results(logger, result, true_pairs, len(entity_pairs), params)
         except:
             logger.info("Zero Reults")
+
+        log_ir_metrics(logger, result_prob, true_pairs)
 
         er_model.close_tf_session()
         return max_fscore

@@ -9,6 +9,7 @@ from common import (
     export_result_prob,
     get_logger,
     get_optimal_threshold,
+    log_ir_metrics,
     log_quality_results)
 from data.cora import Cora
 from data.febrl import FEBRL
@@ -53,7 +54,6 @@ class Test_KR_EAR(unittest.TestCase):
         #Write Embeddings to file
         export_embeddings('ear', file_prefix, 'KR_EAR', entity, ent_embeddings)
         export_result_prob(dataset, 'ear', file_prefix, 'KR_EAR', entity, result_prob, true_pairs)
-
         optimal_threshold, max_fscore = get_optimal_threshold(result_prob, true_pairs)
 
         try:
@@ -63,6 +63,9 @@ class Test_KR_EAR(unittest.TestCase):
             log_quality_results(logger, result, true_pairs, len(entity_pairs), params)
         except:
             logger.info("Zero Reults")
+
+        log_ir_metrics(logger, result_prob, true_pairs)
+
         kr_ear.close_tf_session()
 
     def get_default_params(self):
