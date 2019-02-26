@@ -21,8 +21,16 @@ class Cora(object):
     candidate_links = None
     test_links = None
     true_test_links = None
+    _instance = None
 
-    def __init__(self):
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(Cora, cls).__new__(
+                                cls, *args, **kwargs)
+            cls._instance.init()
+        return cls._instance
+
+    def init(self):
         e = xml.etree.ElementTree.parse(config.CORA_XML_PATH).getroot()
         logger.info("Sample Record from CORA dataset: ")
         logger.info(xml.etree.ElementTree.tostring(e.find('NEWREFERENCE')))

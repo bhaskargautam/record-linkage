@@ -18,8 +18,16 @@ class Census(object):
     candidate_links = None
     test_links = None
     true_test_links = None
+    _instance = None
 
-    def __init__(self):
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(Census, cls).__new__(
+                                cls, *args, **kwargs)
+            cls._instance.init()
+        return cls._instance
+
+    def init(self):
         logger.info("Reading Census Records...")
         WS = pd.read_excel(config.CENSUS_SANT_FELIU, keep_default_na=False)
         data = np.array(WS)

@@ -17,8 +17,16 @@ class FEBRL(object):
     candidate_links = None
     test_links = None
     true_test_links = None
+    _instance = None
 
-    def __init__(self):
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(FEBRL, cls).__new__(
+                                cls, *args, **kwargs)
+            cls._instance.init()
+        return cls._instance
+
+    def init(self):
         #Read data
         dfA_complete, dfB_complete, true_links_complete = load_febrl4(return_links=True)
         logger.info("Sample record: %s", str(dfA_complete[:1]))
