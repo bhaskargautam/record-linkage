@@ -9,7 +9,7 @@ from common import (
     export_result_prob,
     get_optimal_threshold,
     get_logger,
-    log_ir_metrics,
+    InformationRetrievalMetrics,
     log_quality_results,
     sigmoid)
 from data.cora import Cora
@@ -64,7 +64,9 @@ class TestTransE(unittest.TestCase):
         except:
             logger.info("Zero Reults")
 
-        log_ir_metrics(logger, result_prob, true_pairs)
+        #Log MAP, MRR and Hits@K
+        ir_metrics = InformationRetrievalMetrics(result_prob, true_pairs)
+        ir_metrics.log_metrics(logger)
 
         transe.close_tf_session()
         return max_fscore

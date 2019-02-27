@@ -6,7 +6,7 @@ import recordlinkage
 import pandas as pd
 import sys
 
-def get_logger(name, filename=config.DEFAULT_LOG_FILE, level=logging.DEBUG):
+def get_logger(name, filename=config.DEFAULT_LOG_FILE, level=logging.INFO):
     log_file_path = config.BASE_OUTPUT_FOLDER + filename
     formatter = logging.Formatter('%(name)s %(asctime)s %(levelname)s %(message)s')
     logger = logging.getLogger(name)
@@ -155,7 +155,7 @@ def get_optimal_threshold(result_prob, true_pairs):
         try:
             result = pd.MultiIndex.from_tuples([(e1, e2) for (e1, e2, d) in result_prob if d <= threshold])
             fscore = recordlinkage.fscore(true_pairs, result)
-            logger.info("For threshold: %f fscore: %f", threshold, fscore)
+            logger.debug("For threshold: %f fscore: %f", threshold, fscore)
             if fscore >= max_fscore:
                 max_fscore = fscore
                 optimal_threshold = threshold
@@ -166,96 +166,65 @@ def get_optimal_threshold(result_prob, true_pairs):
     return (optimal_threshold, max_fscore)
 
 ### INFORMATION RETRIEVAL METRICS
+class InformationRetrievalMetrics(object):
 
-def get_precision_at_k(result_prob, true_pairs, k=1):
-    result_prob = sorted(result_prob, key=(lambda x: x[2]))
-    true_results = [(e1, e2) for (e1,e2,d) in result_prob[:k] if (e1, e2) in true_pairs]
-    return (len(true_results) * 1.0) / k
-
-def get_average_precision(result_prob, true_pairs):
-    result_prob = sorted(result_prob, key=(lambda x: x[2]))
-    k = 0
-    total_precision = 0.0
-    for i in range(1, len(true_pairs) + 1):
-        while k < len(result_prob):
-            if (result_prob[k][0], result_prob[k][1]) in true_pairs:
-                total_precision = total_precision + (float(i) / (k+1))
-                k = k + 1
-                break
+    def __init__(self, result_prob, true_pairs):
+        self.logger = get_logger("RL.IR_METRICS.")
+        self.result_prob = sorted(result_prob, key=(lambda x: x[2]))
+        self.query_result_mapping = {}
+        for e1, e2 in true_pairs:
+            if e1 in self.query_result_mapping:
+                self.query_result_mapping[e1].append(e2)
             else:
-                k = k + 1
+                self.query_result_mapping[e1] = [e2]
 
-    if len(true_pairs):
-        return total_precision / float(len(true_pairs))
-    return 0
-
-def get_mean_reciprocal_rank(result_prob, true_pairs):
-    reciprocal_rank_sum = 0.0
-    tp_map = {}
-    for e1, e2 in true_pairs:
-        if e1 in tp_map:
-            tp_map[e1].append(e2)
-        else:
-            tp_map[e1] = [e2]
-
-    for e1 in tp_map:
-        results = [(h,t,d) for (h,t,d) in result_prob if h == e1]
-        results = sorted(results, key=lambda x: x[2])
-        for i in range(0,len(results)):
-            if results[i][1] in tp_map[e1]:
-                reciprocal_rank_sum = reciprocal_rank_sum + 1.0/(i + 1)
-                break
-
-    if len(tp_map):
-        return reciprocal_rank_sum / len(tp_map)
-    return 0
-
-def get_mean_rank(result_prob, true_pairs):
-    rank_sum = 0
-    for (e1, e2) in true_pairs:
-        results = [(h,t,d) for (h,t,d) in result_prob if h == e1]
-        results = sorted(results, key=lambda x: x[2])
-        for i in range(0,len(results)):
-            if results[i][1] == e2:
-                rank_sum = rank_sum + i + 1
-
-    if len(true_pairs):
-        return rank_sum / float(len(true_pairs))
-    return 0
-
-def get_mean_average_precision(result_prob, true_pairs):
-    average_precision = 0.0
-    tp_map = {}
-    for e1, e2 in true_pairs:
-        if e1 in tp_map:
-            tp_map[e1].append(e2)
-        else:
-            tp_map[e1] = [e2]
-
-    for e1 in tp_map:
+    def get_mean_precisison_at_k(self, k=1):
         total_precision = 0.0
-        true_count = 0
-        results = [(h,t,d) for (h,t,d) in result_prob if h == e1]
-        results = sorted(results, key=lambda x: x[2])
-        for i in range(0, len(results)):
-            if results[i][1] in tp_map[e1]:
-                true_count = true_count + 1
-                total_precision = total_precision + float(true_count)/(i+1)
+        for e1 in self.query_result_mapping:
+            results = [r for r in self.result_prob if r[0] == e1]
+            results = sorted(results, key=lambda x: x[2])
+            true_results = [1 for (a,b,d) in results[:k] if b in self.query_result_mapping[e1]]
+            precision = len(true_results) / float(k)
+            total_precision = total_precision + precision
+            self.logger.debug("e1: %d, P: %f", e1, precision)
+        return total_precision / len(self.query_result_mapping)
 
-        average_precision = average_precision + (total_precision/float(len(tp_map[e1])))
+    def get_mean_average_precision(self):
+        average_precision = 0.0
+        for e1 in self.query_result_mapping:
+            results = [r for r in self.result_prob if r[0] == e1]
+            results = sorted(results, key=lambda x: x[2])
 
-    if len(tp_map):
-        return average_precision / len(tp_map)
-    return 0
+            true_count = 0
+            total_precision = 0.0
+            for i in range(0, len(results)):
+                if results[i][1] in self.query_result_mapping[e1]:
+                    true_count = true_count + 1
+                    total_precision = total_precision + float(true_count)/(i+1)
 
-def log_ir_metrics(logger, result_prob, true_pairs):
-    logger.info("Precision@1 = %f", get_precision_at_k(result_prob, true_pairs, k=1))
-    logger.info("Precision@5 = %f", get_precision_at_k(result_prob, true_pairs, k=5))
-    logger.info("Precision@10 = %f", get_precision_at_k(result_prob, true_pairs, k=10))
-    logger.info("Precision@20 = %f", get_precision_at_k(result_prob, true_pairs, k=20))
+            average_precision = average_precision + \
+                (total_precision/float(len(self.query_result_mapping[e1])))
+            self.logger.debug("e1: %d, AP: %f", e1, total_precision)
 
-    logger.info("Average Precision (AP) = %f", get_average_precision(result_prob, true_pairs))
-    logger.info("Mean Rank (MR)= %f", get_mean_rank(result_prob, true_pairs))
-    logger.info("Mean Reciprocal Rank (MRR)= %f", get_mean_reciprocal_rank(result_prob, true_pairs))
-    logger.info("Mean Average Precision (MAP)= %f", get_mean_average_precision(result_prob, true_pairs))
-    return True
+        return average_precision / len(self.query_result_mapping)
+
+    def get_mean_reciprocal_rank(self):
+        reciprocal_rank_sum = 0.0
+        for e1 in self.query_result_mapping:
+            results = [r for r in self.result_prob if r[0] == e1]
+            results = sorted(results, key=lambda x: x[2])
+
+            for i in range(0, len(results)):
+                if results[i][1] in self.query_result_mapping[e1]:
+                    reciprocal_rank_sum = reciprocal_rank_sum + (1.0/(i + 1))
+                    break
+
+            self.logger.debug("e1: %d, RR: %f", e1, reciprocal_rank_sum)
+        return reciprocal_rank_sum / len(self.query_result_mapping)
+
+    def log_metrics(self, logger):
+        logger.info("Mean Precision@1 = %f", self.get_mean_precisison_at_k(k=1))
+        logger.info("Mean Precision@10 = %f", self.get_mean_precisison_at_k(k=10))
+        logger.info("Mean Reciprocal Rank (MRR)= %f", self.get_mean_reciprocal_rank())
+        logger.info("Mean Average Precision (MAP)= %f", self.get_mean_average_precision())
+        return True

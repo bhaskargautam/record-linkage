@@ -7,7 +7,7 @@ from common import (
     export_embeddings,
     export_result_prob,
     get_logger,
-    log_ir_metrics,
+    InformationRetrievalMetrics,
     log_quality_results)
 from data.cora import Cora
 from data.febrl import FEBRL
@@ -56,7 +56,10 @@ class Test_SEEA(unittest.TestCase):
             distance = abs(spatial.distance.cosine(ent_embeddings[e1], ent_embeddings[e2]))
             result_prob.append((e1, e2, distance))
         export_result_prob(dataset, 'ear', file_prefix, 'SEEA', entity, result_prob, true_pairs)
-        log_ir_metrics(logger, result_prob, true_pairs)
+
+        #Log MAP, MRR and Hits@K
+        ir_metrics = InformationRetrievalMetrics(result_prob, true_pairs)
+        ir_metrics.log_metrics(logger)
 
         seea.close_tf_session()
 
