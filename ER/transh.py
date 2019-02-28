@@ -83,11 +83,11 @@ class TransH(object):
         _p_score = self._calc(pos_h, pos_t, pos_r)
         _n_score = self._calc(pos_nh, pos_nt, pos_nr)
 
-        p_score = tf.reduce_mean(_p_score, 1)
-        n_score = tf.reduce_mean(tf.reduce_mean(_n_score, 1), axis=1)
+        p_score = tf.reduce_sum(_p_score, 1, keepdims=True)
+        n_score = tf.reduce_mean(tf.reduce_mean(_n_score, 1, keepdims=False), keepdims=True, axis=1)
         logger.info("PScore Shape %s. N_score Shape: %s", str(p_score.shape), str(n_score.shape))
 
-        self.loss = tf.reduce_mean(tf.maximum(p_score - n_score + self.margin, 0))
+        self.loss = tf.reduce_sum(tf.maximum(p_score - n_score + self.margin, 0))
 
         #Configure optimizer
         self.optimizer = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(self.loss)
@@ -128,7 +128,11 @@ class TransH(object):
                         }
                     _ , cur_loss = self.sess.run([self.optimizer, self.loss], feed_dict=feed_dict)
                     loss = loss + cur_loss
-                logger.info("Epoch: %d Loss: %f", epoch, loss)
+                if loss:
+                    logger.info("Epoch: %d Loss: %f", epoch, loss)
+                else:
+                    logger.info("Zero Loss, finish training in %d epochs", epoch)
+                    break
         return loss
 
     def get_ent_embeddings(self):

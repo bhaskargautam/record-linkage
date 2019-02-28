@@ -93,12 +93,12 @@ class SEEA(object):
         _ap_score = self._attr_calc(proj_pos_attr_h, pos_val, pos_attr)
         _an_score = self._attr_calc(proj_pos_attr_nh, pos_attr_nv, pos_attr_na)
 
-        p_score = tf.reduce_mean(_p_score, 1)
-        n_score = tf.reduce_mean(tf.reduce_mean(_n_score, 1), axis=1)
-        ap_score = tf.reduce_mean(_ap_score, 1)
-        an_score = tf.reduce_mean(tf.reduce_mean(_an_score, 1), axis=1)
-        self.rel_loss = tf.reduce_mean(tf.maximum(p_score - n_score + self.margin, 0))
-        self.attr_loss = tf.reduce_mean(tf.maximum(ap_score - an_score + self.margin, 0))
+        p_score = tf.reduce_sum(_p_score, 1, keepdims=True)
+        n_score = tf.reduce_mean(tf.reduce_mean(_n_score, 1, keepdims=False), axis=1, keepdims=True)
+        ap_score = tf.reduce_sum(_ap_score, 1, keepdims=True)
+        an_score = tf.reduce_mean(tf.reduce_mean(_an_score, 1, keepdims=False), axis=1, keepdims=True)
+        self.rel_loss = tf.reduce_sum(tf.maximum(p_score - n_score + self.margin, 0))
+        self.attr_loss = tf.reduce_sum(tf.maximum(ap_score - an_score + self.margin, 0))
 
         #Configure optimizer
         self.rel_optimizer = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(self.rel_loss)
@@ -118,7 +118,7 @@ class SEEA(object):
         return abs(tf.nn.tanh(h + a) - v)
 
     def _transfer(self, e, n):
-        return e - tf.reduce_sum(e * n, 1, keep_dims = True) * n
+        return e - tf.reduce_sum(e * n, 1, keepdims = True) * n
 
     def train(self, max_epochs=100):
         loss = 0
@@ -163,8 +163,12 @@ class SEEA(object):
                     attr_loss = attr_loss + cur_attr_loss
 
                 loss = rel_loss + attr_loss
-                logger.info("Epoch: %d Loss: %f Rel_loss: %f, Attr_loss: %f",
-                    epoch, loss, rel_loss, attr_loss)
+
+                if loss:
+                    logger.info("Epoch: %d Loss: %f Rel_loss: %f, Attr_loss: %f", epoch, loss, rel_loss, attr_loss)
+                else:
+                    logger.info("Zero Loss, finish training in %d epochs", epoch)
+                    break
 
         return loss
 
