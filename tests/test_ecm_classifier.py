@@ -8,7 +8,7 @@ import recordlinkage
 import unittest
 import xml.etree.ElementTree
 
-from common import get_logger, log_quality_results
+from common import get_logger, log_quality_results, InformationRetrievalMetrics
 from data.cora import Cora
 from data.febrl import FEBRL
 from data.census import Census
@@ -41,6 +41,13 @@ class TestECMClassifier(unittest.TestCase):
         result = logrg.predict(features)
         log_quality_results(logger, result, cora.true_test_links, len(cora.test_links))
 
+        #Log IR Stats: MRR, MAP, MP@K
+        prob_series = logrg.prob(features)
+        prob = [(1 - p) for p in prob_series.tolist()]
+        result_prob = [(cora.test_links[i][0], cora.test_links[i][1], prob[i]) for i in range(0, len(prob))]
+        ir_metrics = InformationRetrievalMetrics(result_prob, cora.true_test_links)
+        ir_metrics.log_metrics(logger)
+
     def test_febrl(self):
         logger = get_logger('RL.Test.ECMClassifier.FEBRL')
 
@@ -65,6 +72,13 @@ class TestECMClassifier(unittest.TestCase):
         result = logrg.predict(features)
         log_quality_results(logger, result, febrl.true_test_links, len(febrl.test_links))
 
+        #Log IR Stats: MRR, MAP, MP@K
+        prob_series = logrg.prob(features)
+        prob = [(1 - p) for p in prob_series.tolist()]
+        result_prob = [(febrl.test_links[i][0], febrl.test_links[i][1], prob[i]) for i in range(0, len(prob))]
+        ir_metrics = InformationRetrievalMetrics(result_prob, febrl.true_test_links)
+        ir_metrics.log_metrics(logger)
+
     def test_census(self):
         logger = get_logger('RL.Test.ECMClassifier.Census')
 
@@ -88,3 +102,10 @@ class TestECMClassifier(unittest.TestCase):
 
         result = logrg.predict(features)
         log_quality_results(logger, result, census.true_test_links, len(census.test_links))
+
+        #Log IR Stats: MRR, MAP, MP@K
+        prob_series = logrg.prob(features)
+        prob = [(1 - p) for p in prob_series.tolist()]
+        result_prob = [(census.test_links[i][0], census.test_links[i][1], prob[i]) for i in range(0, len(prob))]
+        ir_metrics = InformationRetrievalMetrics(result_prob, census.true_test_links)
+        ir_metrics.log_metrics(logger)
