@@ -66,7 +66,7 @@ class KR_EAR(object):
         self.neg_val = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
         self.neg_attr = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
 
-        #Load Embedding Vectors
+        #Load Embedding Vectors for Relational Triple
         pos_h = tf.nn.embedding_lookup(self.ent_embeddings, self.head)
         pos_t = tf.nn.embedding_lookup(self.ent_embeddings, self.tail)
         pos_r = tf.nn.embedding_lookup(self.rel_embeddings, self.rel)
@@ -74,6 +74,15 @@ class KR_EAR(object):
         pos_nt = tf.nn.embedding_lookup(self.ent_embeddings, self.neg_tail)
         pos_nr = tf.nn.embedding_lookup(self.rel_embeddings, self.neg_rel)
 
+        #Normalize vectors
+        pos_h = tf.nn.l2_normalize(pos_h, 1)
+        pos_t = tf.nn.l2_normalize(pos_t, 1)
+        pos_r = tf.nn.l2_normalize(pos_r, 1)
+        pos_nh = tf.nn.l2_normalize(pos_nh, 1)
+        pos_nt = tf.nn.l2_normalize(pos_nt, 1)
+        pos_nr = tf.nn.l2_normalize(pos_nr, 1)
+
+        #Load Embedding Vectors for Attributional Triple
         pos_attr_h = tf.nn.embedding_lookup(self.ent_embeddings, self.attr_head)
         pos_val = tf.nn.embedding_lookup(self.val_embeddings, self.val)
         pos_attr = tf.nn.embedding_lookup(self.attr_embeddings, self.attr)
@@ -81,8 +90,21 @@ class KR_EAR(object):
         pos_attr_nv = tf.nn.embedding_lookup(self.val_embeddings, self.neg_val)
         pos_attr_na = tf.nn.embedding_lookup(self.attr_embeddings, self.neg_attr)
 
+        #Normalize vectors
+        pos_attr_h = tf.nn.l2_normalize(pos_attr_h)
+        pos_val = tf.nn.l2_normalize(pos_val)
+        pos_attr = tf.nn.l2_normalize(pos_attr)
+        pos_attr_nh = tf.nn.l2_normalize(pos_attr_nh)
+        pos_attr_nv = tf.nn.l2_normalize(pos_attr_nv)
+        pos_attr_na = tf.nn.l2_normalize(pos_attr_na)
+
+        #Load Normal Vectors
         pos_proj = tf.nn.embedding_lookup(self.projection_matrix, self.attr)
         pos_nproj = tf.nn.embedding_lookup(self.projection_matrix, self.neg_attr)
+
+        #Normalize vectors
+        pos_proj = tf.nn.l2_normalize(pos_proj)
+        pos_nproj = tf.nn.l2_normalize(pos_nproj)
 
         proj_pos_attr_h = self._transfer(pos_attr_h, pos_proj)
         proj_pos_attr_nh = self._transfer(pos_attr_nh, pos_nproj)
