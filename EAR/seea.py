@@ -83,6 +83,23 @@ class SEEA(object):
         pos_proj = tf.nn.embedding_lookup(self.projection_matrix, self.attr)
         pos_nproj = tf.nn.embedding_lookup(self.projection_matrix, self.neg_attr)
 
+        #Normalize Vectors
+        pos_h = tf.nn.l2_normalize(pos_h)
+        pos_t = tf.nn.l2_normalize(pos_t)
+        pos_r = tf.nn.l2_normalize(pos_r)
+        pos_nh = tf.nn.l2_normalize(pos_nh)
+        pos_nt = tf.nn.l2_normalize(pos_nt)
+        pos_nr = tf.nn.l2_normalize(pos_nr)
+        pos_attr_h = tf.nn.l2_normalize(pos_attr_h)
+        pos_val = tf.nn.l2_normalize(pos_val)
+        pos_attr = tf.nn.l2_normalize(pos_attr)
+        pos_attr_nh = tf.nn.l2_normalize(pos_attr_nh)
+        pos_attr_nv = tf.nn.l2_normalize(pos_attr_nv)
+        pos_attr_na = tf.nn.l2_normalize(pos_attr_na)
+        pos_proj = tf.nn.l2_normalize(pos_proj)
+        pos_nproj = tf.nn.l2_normalize(pos_nproj)
+
+        #Project Entities to attribute space
         proj_pos_attr_h = self._transfer(pos_attr_h, pos_proj)
         proj_pos_attr_nh = self._transfer(pos_attr_nh, pos_nproj)
 
