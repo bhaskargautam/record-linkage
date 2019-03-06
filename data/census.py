@@ -203,7 +203,7 @@ class Census(object):
                     continue
                 if surname_mapping[e1] == surname_mapping[e2]:
                     entity_pairs.append((e1, e2))
-                    if dni_mapping[e1] == dni_mapping[e2]:
+                    if dni_mapping[e1] == dni_mapping[e2] and dni_mapping[e2]:
                         true_pairs.append((e1,e2))
 
         logger.info("Number of entity pairs: %d", len(entity_pairs))
@@ -338,7 +338,7 @@ class Census(object):
                     continue
                 if surname_mapping[e1] == surname_mapping[e2]:
                     entity_pairs.append((e1, e2))
-                    if dni_mapping[e1] == dni_mapping[e2]:
+                    if dni_mapping[e1] == dni_mapping[e2] and dni_mapping[e2]:
                         true_pairs.append((e1,e2))
 
         logger.info("Number of entity pairs: %d", len(entity_pairs))
@@ -474,7 +474,7 @@ class Census(object):
             for e2 in data_1924:
                 if surname_mapping[e1] == surname_mapping[e2]:
                     entity_pairs.append((e1, e2))
-                    if dni_mapping[e1] == dni_mapping[e2]:
+                    if dni_mapping[e1] == dni_mapping[e2] and dni_mapping[e2]:
                         true_pairs.append((e1,e2))
 
         prior_pairs = []
