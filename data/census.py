@@ -10,14 +10,24 @@ logger = get_logger('RL.Data.Census')
 
 class Census(object):
     """Read Census Dataset"""
+    #Train Data
     trainDataA = None
     trainDataB = None
-    testDataA = None
-    testDataB = None
     true_links = None
     candidate_links = None
+
+    #Test Data
+    testDataA = None
+    testDataB = None
     test_links = None
     true_test_links = None
+
+    #Validation Data
+    valDataA = None
+    valDataB = None
+    val_links = None
+    true_val_links = None
+
     _instance = None
 
     def __new__(cls, *args, **kwargs):
@@ -27,7 +37,10 @@ class Census(object):
             cls._instance.init()
         return cls._instance
 
-    def init(self, base_file=config.CENSUS_SANT_FELIU, train_years=[[1940], [1936]], test_years= [[1930],[1924]]):
+    def init(self, base_file = config.CENSUS_SANT_FELIU,
+                    train_years = [[1940], [1936]],
+                    test_years = [[1930],[1924]],
+                    validation_years = [[1920], [1915]]):
         logger.info("Reading Census Records...")
         WS = pd.read_excel(base_file, keep_default_na=False)
         data = np.array(WS)
@@ -39,20 +52,26 @@ class Census(object):
         data_1936 = np.array(filter(lambda x: x[4] in train_years[1], data))
         data_1930 = np.array(filter(lambda x: x[4] in test_years[0], data))
         data_1924 = np.array(filter(lambda x: x[4] in test_years[1], data))
-        logger.info("Population: 1940 %s 1936 %s ", str(data_1940.shape), str(data_1936.shape))
-        logger.info("Population: 1930 %s 1924 %s ", str(data_1930.shape), str(data_1924.shape))
+        data_1920 = np.array(filter(lambda x: x[4] in validation_years[0], data))
+        data_1915 = np.array(filter(lambda x: x[4] in validation_years[1], data))
+        logger.info("Train Population: 1940 %s 1936 %s ", str(data_1940.shape), str(data_1936.shape))
+        logger.info("Test Population: 1930 %s 1924 %s ", str(data_1930.shape), str(data_1924.shape))
+        logger.info("Validation Population: 1920 %s 1915 %s ", str(data_1920.shape), str(data_1915.shape))
 
         self.trainDataA = pd.DataFrame(data_1940)
         self.trainDataB = pd.DataFrame(data_1936)
         self.testDataA = pd.DataFrame(data_1930)
         self.testDataB = pd.DataFrame(data_1924)
+        self.valDataA = pd.DataFrame(data_1920)
+        self.valDataB = pd.DataFrame(data_1915)
 
+        #Extract training candidate pairs
         indexer = recordlinkage.Index()
         indexer.block(12)
         self.candidate_links = indexer.index(self.trainDataA, self.trainDataB)
         logger.info("No. of Candidate Pairs %d", (len(self.candidate_links)))
 
-        #Extarct true links (takes time...)
+        #Extarct Training true links (takes time...)
         true_links = []
         for indexA, indexB in self.candidate_links:
             if data_1940[indexA][3] == data_1936[indexB][3] and data_1936[indexB][3]:
@@ -60,18 +79,33 @@ class Census(object):
         logger.info("Number of true links: %d", len(true_links))
         self.true_links = pd.MultiIndex.from_tuples(true_links)
 
+        #Extract test candidate pairs
         indexer = recordlinkage.Index()
         indexer.block(12)
         self.test_links = indexer.index(self.testDataA, self.testDataB)
         logger.info("No. of Test Pairs %d", (len(self.test_links)))
 
-        #Extarct true links (takes time...)
+        #Extarct test true links (takes time...)
         true_test_links = []
         for indexA, indexB in self.test_links:
             if data_1930[indexA][3] == data_1924[indexB][3] and data_1924[indexB][3]:
                 true_test_links.append((indexA, indexB))
         logger.info("Number of true test links: %d", len(true_test_links))
         self.true_test_links = pd.MultiIndex.from_tuples(true_test_links)
+
+        #Extract val candidate pairs
+        indexer = recordlinkage.Index()
+        indexer.block(12)
+        self.val_links = indexer.index(self.valDataA, self.valDataB)
+        logger.info("No. of Validation Pairs %d", (len(self.val_links)))
+
+        #Extarct val true links (takes time...)
+        true_val_links = []
+        for indexA, indexB in self.val_links:
+            if data_1920[indexA][3] == data_1915[indexB][3] and data_1915[indexB][3]:
+                true_val_links.append((indexA, indexB))
+        logger.info("Number of true Validation links: %d", len(true_val_links))
+        self.true_val_links = pd.MultiIndex.from_tuples(true_val_links)
 
     def get_comparision_object(self):
         compare_cl = recordlinkage.Compare()

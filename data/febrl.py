@@ -9,14 +9,24 @@ logger = get_logger('RL.Data.FEBRL')
 
 class FEBRL(object):
     """Class to Read FEBRL Dataset"""
+    #Train Data
     trainDataA = None
     trainDataB = None
-    testDataA = None
-    testDataB = None
     true_links = None
     candidate_links = None
+
+    #Test Data
+    testDataA = None
+    testDataB = None
     test_links = None
     true_test_links = None
+
+    #Validation Data
+    valDataA = None
+    valDataB = None
+    val_links = None
+    true_val_links = None
+
     _instance = None
 
     def __new__(cls, *args, **kwargs):
@@ -34,10 +44,46 @@ class FEBRL(object):
         logger.info("Shape of True Links: %s", str(true_links_complete.shape))
 
         # Split test & train dataset
-        self.trainDataA, self.trainDataB = dfA_complete[:4000], dfB_complete[:4000]
-        self.testDataA, self.testDataB = dfA_complete[-1000:], dfB_complete[-1000:]
+        self.testDataA = []
+        self.testDataB = []
+        self.trainDataA = []
+        self.trainDataB = []
+        self.valDataA = []
+        self.valDataB = []
 
-        # Compute candidate links
+        for rec_id, row in dfA_complete.iterrows():
+            id = int(rec_id.split('-')[1])
+            if id < 3000:
+                self.trainDataA.append(row)
+            elif id < 4500:
+                self.testDataA.append(row)
+            else:
+                self.valDataA.append(row)
+
+        for rec_id, row in dfB_complete.iterrows():
+            id = int(rec_id.split('-')[1])
+            if id < 3000:
+                self.trainDataB.append(row)
+            elif id < 4500:
+                self.testDataB.append(row)
+            else:
+                self.valDataB.append(row)
+
+        self.trainDataA = pd.DataFrame(data=self.trainDataA)
+        self.trainDataB = pd.DataFrame(data=self.trainDataB)
+        self.testDataA = pd.DataFrame(data=self.testDataA)
+        self.testDataB = pd.DataFrame(data=self.testDataB)
+        self.valDataA = pd.DataFrame(data=self.valDataA)
+        self.valDataB = pd.DataFrame(data=self.valDataB)
+
+        logger.info("Train DataA shape: %s", str(self.trainDataA.shape))
+        logger.info("Train DataB shape: %s", str(self.trainDataB.shape))
+        logger.info("Test DataA shape: %s", str(self.testDataA.shape))
+        logger.info("Test DataB shape: %s", str(self.testDataB.shape))
+        logger.info("Val DataA shape: %s", str(self.valDataA.shape))
+        logger.info("Val DataB shape: %s", str(self.valDataB.shape))
+
+        # Compute candidate links for training
         indexer = recordlinkage.Index()
         indexer.block('given_name')
         self.candidate_links = indexer.index(self.trainDataA, self.trainDataB)
@@ -49,6 +95,7 @@ class FEBRL(object):
             if i in true_links_complete:
                 true_links_train.append(i)
         self.true_links = pd.MultiIndex.from_tuples(true_links_train)
+        logger.info("True Pairs: %d", (len(self.true_links)))
 
         # Compute candidate links for testing
         indexer = recordlinkage.Index()
@@ -62,6 +109,22 @@ class FEBRL(object):
             if i in true_links_complete:
                 true_links_test.append(i)
         self.true_test_links = pd.MultiIndex.from_tuples(true_links_test)
+        logger.info("True Test Pairs: %d", (len(self.true_test_links)))
+
+         # Compute candidate links for validation
+        indexer = recordlinkage.Index()
+        indexer.block('given_name')
+        self.val_links = indexer.index(self.valDataA, self.valDataB)
+        logger.info("Validation Candidate Pairs: %d", (len(self.val_links)))
+
+        #Extract True Links
+        true_links_val = []
+        for i in self.val_links:
+            if i in true_links_complete:
+                true_links_val.append(i)
+        self.true_val_links = pd.MultiIndex.from_tuples(true_links_val)
+        logger.info("True Validation Pairs: %d", (len(self.true_val_links)))
+
 
     def get_comparision_object(self):
         compare_cl = recordlinkage.Compare()

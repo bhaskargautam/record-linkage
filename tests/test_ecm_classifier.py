@@ -24,7 +24,7 @@ class TestECMClassifier(unittest.TestCase):
         ## Extarct Features
         compare_cl = cora.get_comparision_object()
         features = compare_cl.compute(cora.candidate_links, cora.trainDataA, cora.trainDataB)
-        logger.info("Features %s", str(features.describe()))
+        logger.info("Train Features %s", str(features.describe()))
 
         # Train ECM Classifier
         logrg = recordlinkage.ECMClassifier()
@@ -33,10 +33,19 @@ class TestECMClassifier(unittest.TestCase):
         result = logrg.predict(features)
         log_quality_results(logger, result, cora.true_links, len(cora.candidate_links))
 
+        #validate the classifier
+        compare_cl = cora.get_comparision_object()
+        features = compare_cl.compute(cora.val_links, cora.valDataA, cora.valDataB)
+        logger.info("Validation Features %s", str(features.describe()))
+
+        result = logrg.predict(features)
+        log_quality_results(logger, result, cora.true_val_links, len(cora.val_links))
+
+
         #Test the classifier
         compare_cl = cora.get_comparision_object()
         features = compare_cl.compute(cora.test_links, cora.testDataA, cora.testDataB)
-        logger.info("Features %s", str(features.describe()))
+        logger.info("Test Features %s", str(features.describe()))
 
         result = logrg.predict(features)
         log_quality_results(logger, result, cora.true_test_links, len(cora.test_links))
@@ -55,7 +64,7 @@ class TestECMClassifier(unittest.TestCase):
 
         compare_cl = febrl.get_comparision_object()
         features = compare_cl.compute(febrl.candidate_links, febrl.trainDataA, febrl.trainDataB)
-        logger.info("Features %s", str(features.describe()))
+        logger.info("Train Features %s", str(features.describe()))
 
         # Train ECM Classifier
         logrg = recordlinkage.ECMClassifier()
@@ -64,10 +73,18 @@ class TestECMClassifier(unittest.TestCase):
         result = logrg.predict(features)
         log_quality_results(logger, result, febrl.true_links, len(febrl.candidate_links))
 
+        #Validate the classifier
+        compare_cl = febrl.get_comparision_object()
+        features = compare_cl.compute(febrl.val_links, febrl.valDataA, febrl.valDataB)
+        logger.info("Validation Features %s", str(features.describe()))
+
+        result = logrg.predict(features)
+        log_quality_results(logger, result, febrl.true_val_links, len(febrl.val_links))
+
         #Test the classifier
         compare_cl = febrl.get_comparision_object()
         features = compare_cl.compute(febrl.test_links, febrl.testDataA, febrl.testDataB)
-        logger.info("Features %s", str(features.describe()))
+        logger.info("Test Features %s", str(features.describe()))
 
         result = logrg.predict(features)
         log_quality_results(logger, result, febrl.true_test_links, len(febrl.test_links))
@@ -86,7 +103,7 @@ class TestECMClassifier(unittest.TestCase):
 
         compare_cl = census.get_comparision_object()
         features = compare_cl.compute(census.candidate_links, census.trainDataA, census.trainDataB)
-        logger.info("Features %s", str(features.describe()))
+        logger.info("Train Features %s", str(features.describe()))
 
         # Train ECM Classifier
         logrg = recordlinkage.ECMClassifier()
@@ -95,10 +112,19 @@ class TestECMClassifier(unittest.TestCase):
         result = logrg.predict(features)
         log_quality_results(logger, result, census.true_links, len(census.candidate_links))
 
+        #Validate the classifier
+        compare_cl = census.get_comparision_object()
+        features = compare_cl.compute(census.val_links, census.valDataA, census.valDataB)
+        logger.info("Validation Features %s", str(features.describe()))
+
+        result = logrg.predict(features)
+        log_quality_results(logger, result, census.true_val_links, len(census.val_links))
+
+
         #Test the classifier
         compare_cl = census.get_comparision_object()
         features = compare_cl.compute(census.test_links, census.testDataA, census.testDataB)
-        logger.info("Features %s", str(features.describe()))
+        logger.info("Test Features %s", str(features.describe()))
 
         result = logrg.predict(features)
         log_quality_results(logger, result, census.true_test_links, len(census.test_links))

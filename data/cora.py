@@ -1,4 +1,5 @@
 import config
+import copy
 import numpy as np
 import pandas as pd
 import random
@@ -13,14 +14,24 @@ logger = get_logger('RL.Data.CORA')
 class Cora(object):
     """Class to read Cora Dataset"""
     data = None
+
+    #Training Data
     trainDataA = None
     trainDataB = None
-    testDataA = None
-    testDataB = None
     true_links = None
     candidate_links = None
+
+    #Test Data
+    testDataA = None
+    testDataB = None
     test_links = None
     true_test_links = None
+
+    #Validation Data
+    valDataA = None
+    valDataB = None
+    val_links = None
+    true_val_links = None
     _instance = None
 
     def __new__(cls, *args, **kwargs):
@@ -36,6 +47,13 @@ class Cora(object):
         logger.info(xml.etree.ElementTree.tostring(e.find('NEWREFERENCE')))
 
         self.data = {}
+        dataA = []
+        dataB = []
+        testA = []
+        testB = []
+        valA = []
+        valB =[]
+        db_choice = 0
         for record in e.findall('NEWREFERENCE'):
             dni = re.search('[a-z]+[0-9]+[a-z]*', record.text)
             dni = re.search('[a-z]+', record.text) if not dni else dni
@@ -46,49 +64,33 @@ class Cora(object):
             else:
                 self.data[dni] = [record]
 
-        dataA = []
-        dataB = []
-        testA = []
-        testB = []
-        count = 116 #Np = Number of True Links
-        #Divide duplicate pairs to each dataset
-        for dni in self.data:
-            if len(self.data[dni]) > 1:
-                if count > 0:
-                    dataA.append(self.data[dni][0])
-                    dataB.append(self.data[dni][1])
-                    count = count - 1
-                else:
-                    testA.append(self.data[dni][0])
-                    testB.append(self.data[dni][1])
-                for i in range(2, len(self.data[dni])):
-                    if random.randint(0, 1):
-                        testA.append(self.data[dni][i])
-                    else:
-                        testB.append(self.data[dni][i])
+            #db_choice = random.randint(0, 3)
+            if db_choice == 0 or db_choice == 4 or db_choice == 8:
+                dataA.append(record)
+            elif db_choice == 1 or db_choice == 5 or db_choice == 9:
+                dataB.append(record)
+            elif db_choice == 2 or db_choice == 6:
+                testA.append(record)
+            elif db_choice == 3 or db_choice == 7:
+                testB.append(record)
+            elif db_choice == 10:
+                valA.append(record)
+            elif db_choice == 11:
+                valB.append(record)
+            db_choice = (db_choice + 1) % 12
 
-        #Add noise enities to both dataset which are not linked.
-        for dni in self.data:
-            if len(self.data[dni]) == 1:
-                if len(dataA) < 145: #and random.randint(0,1):
-                    dataA.append(self.data[dni][0])
-                elif len(dataB) < 143:
-                    dataB.append(self.data[dni][0])
-                elif random.randint(0, 1):
-                    testA.append(self.data[dni][0])
-                else:
-                    testB.append(self.data[dni][0])
+        logger.info("Size of Training Dataset A %d and B  %d", len(dataA), len(dataB))
+        logger.info("Size of Testing Dataset A %d and B  %d", len(testA), len(testB))
+        logger.info("Size of Validation Dataset A %d and B  %d", len(valA), len(valB))
 
-        logger.info("Size of Dataset A %d and B  %d", len(dataA), len(dataB))
         df_a = {  'dni' : [], 'author' : [], 'publisher' : [], 'date' : [],
                 'title' : [], 'journal' : [], 'volume' : [], 'pages' : [], 'address' : [], 'id' : []}
-        df_b = {  'dni' : [], 'author' : [], 'publisher' : [], 'date' : [],
-                'title' : [], 'journal' : [], 'volume' : [], 'pages' : [], 'address' : [], 'id' : []}
-        tdf_a = {  'dni' : [], 'author' : [], 'publisher' : [], 'date' : [],
-                'title' : [], 'journal' : [], 'volume' : [], 'pages' : [], 'address' : [], 'id' : []}
-        tdf_b = {  'dni' : [], 'author' : [], 'publisher' : [], 'date' : [],
-                'title' : [], 'journal' : [], 'volume' : [], 'pages' : [], 'address' : [], 'id' : []}
-        for (df, dataset) in [(df_a, dataA), (df_b, dataB), (tdf_a, testA), (tdf_b, testB)]:
+        df_b = copy.deepcopy(df_a)
+        tdf_a = copy.deepcopy(df_a)
+        tdf_b = copy.deepcopy(df_a)
+        vdf_a = copy.deepcopy(df_a)
+        vdf_b = copy.deepcopy(df_a)
+        for (df, dataset) in [(df_a, dataA), (df_b, dataB), (tdf_a, testA), (tdf_b, testB), (vdf_a, valA), (vdf_b, valB)]:
             for record in dataset:
                 dni = re.search('[a-z]+[0-9]+[a-z]*', record.text)
                 dni = re.search('[a-z]+', record.text) if not dni else dni
@@ -107,6 +109,8 @@ class Cora(object):
         self.trainDataB = pd.DataFrame(data=df_b)
         self.testDataA = pd.DataFrame(data=tdf_a)
         self.testDataB = pd.DataFrame(data=tdf_b)
+        self.valDataA = pd.DataFrame(data=vdf_a)
+        self.valDataB = pd.DataFrame(data=vdf_b)
 
         #Extract all possible pairs for training
         indexer = recordlinkage.Index()
@@ -133,8 +137,22 @@ class Cora(object):
         for indexA, indexB in self.test_links:
             if tdf_a['dni'][indexA] == tdf_b['dni'][indexB]:
                 true_test_links.append((indexA, indexB))
-        logger.info("Number of true links: %d", len(true_test_links))
+        logger.info("Number of true links for testing: %d", len(true_test_links))
         self.true_test_links = pd.MultiIndex.from_tuples(true_test_links)
+
+        #Extract all possible pairs for Validation
+        indexer = recordlinkage.Index()
+        indexer.full()
+        self.val_links = indexer.index(self.valDataA, self.valDataB)
+        logger.info("Number Candidate Pairs for validation: %d", (len(self.val_links)))
+
+        #Extarct test true links (takes time...)
+        true_val_links = []
+        for indexA, indexB in self.val_links:
+            if vdf_a['dni'][indexA] == vdf_b['dni'][indexB]:
+                true_val_links.append((indexA, indexB))
+        logger.info("Number of true links for validation: %d", len(true_val_links))
+        self.true_val_links = pd.MultiIndex.from_tuples(true_val_links)
 
     def get_comparision_object(self):
         compare_cl = recordlinkage.Compare()
