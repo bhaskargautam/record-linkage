@@ -27,18 +27,18 @@ class Census(object):
             cls._instance.init()
         return cls._instance
 
-    def init(self):
+    def init(self, base_file=config.CENSUS_SANT_FELIU, train_years=[[1940], [1936]], test_years= [[1930],[1924]]):
         logger.info("Reading Census Records...")
-        WS = pd.read_excel(config.CENSUS_SANT_FELIU, keep_default_na=False)
+        WS = pd.read_excel(base_file, keep_default_na=False)
         data = np.array(WS)
         logger.info("Shape of Census data: %s", str(data.shape))
         logger.info("Sample Record: %s", str(data[0]))
 
         logger.info("Available Census Years %s", str(np.unique(data[:,4])))
-        data_1940 = np.array(filter(lambda x: x[4] == 1940, data))
-        data_1936 = np.array(filter(lambda x: x[4] == 1936, data))
-        data_1930 = np.array(filter(lambda x: x[4] == 1930, data))
-        data_1924 = np.array(filter(lambda x: x[4] == 1924, data))
+        data_1940 = np.array(filter(lambda x: x[4] in train_years[0], data))
+        data_1936 = np.array(filter(lambda x: x[4] in train_years[1], data))
+        data_1930 = np.array(filter(lambda x: x[4] in test_years[0], data))
+        data_1924 = np.array(filter(lambda x: x[4] in test_years[1], data))
         logger.info("Population: 1940 %s 1936 %s ", str(data_1940.shape), str(data_1936.shape))
         logger.info("Population: 1930 %s 1924 %s ", str(data_1930.shape), str(data_1924.shape))
 
@@ -55,7 +55,7 @@ class Census(object):
         #Extarct true links (takes time...)
         true_links = []
         for indexA, indexB in self.candidate_links:
-            if data_1940[indexA][3] == data_1936[indexB][3]:
+            if data_1940[indexA][3] == data_1936[indexB][3] and data_1936[indexB][3]:
                 true_links.append((indexA, indexB))
         logger.info("Number of true links: %d", len(true_links))
         self.true_links = pd.MultiIndex.from_tuples(true_links)
@@ -68,7 +68,7 @@ class Census(object):
         #Extarct true links (takes time...)
         true_test_links = []
         for indexA, indexB in self.test_links:
-            if data_1930[indexA][3] == data_1924[indexB][3]:
+            if data_1930[indexA][3] == data_1924[indexB][3] and data_1924[indexB][3]:
                 true_test_links.append((indexA, indexB))
         logger.info("Number of true test links: %d", len(true_test_links))
         self.true_test_links = pd.MultiIndex.from_tuples(true_test_links)
