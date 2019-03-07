@@ -13,8 +13,7 @@ class TestGraphExport(unittest.TestCase):
     def _test_er_graph_export(self, dataset):
         model = dataset()
         entity, relation, triples, entity_pairs, true_pairs = model.get_er_model()
-        graph = Graph_ER(str(model))
-        graph.export_kg_er_model(entity, relation, triples, entity_pairs, true_pairs)
+        graph = Graph_ER(dataset, rebuild=True)
         e,r,t,ep,tp = graph.load_kg_er_model()
         self.assertEqual(len(e), len(entity))
         self.assertEqual(len(r), len(relation))

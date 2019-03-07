@@ -13,34 +13,33 @@ class TransE(object):
         User train method to update the embeddings.
     """
 
-    def __init__(self, entity, relation, triples, entity_pairs, dimension=10, batchSize=100,
-                    learning_rate=0.1, margin=1, regularizer_scale = 0.1, neg_rate=1, neg_rel_rate=0):
+    def __init__(self, graph_er, dimension=10, batchSize=100, learning_rate=0.1, margin=1,
+                                    regularizer_scale = 0.1, neg_rate=1, neg_rel_rate=0):
         logger.info("Begin generating TransE embeddings with dimension : %d" ,dimension)
 
         self.dimension = dimension #Embedding Dimension
         self.batchSize = batchSize #BatchSize for Stochastic Gradient Decent
         self.learning_rate = learning_rate #Learning rate for optmizer
         self.margin = margin #margin or bias used for loss computation
-        self.entity = entity #List of entities in Knowledge graph
-        self.relation = relation #List of relationships in Knowledge Graph
+        self.entity = graph_er.entity #List of entities in Knowledge graph
+        self.relation = graph_er.relation #List of relationships in Knowledge Graph
         self.neg_rate = neg_rate #Number of Negative samples to generate by replacing head or tail
         self.neg_rel_rate = neg_rel_rate #Number fo negative samples by replacing realtion
 
         # List of triples. Remove last incomplete batch if any.
-        self.triples = np.array(triples[0: (len(triples) - len(triples)%batchSize)])
-        start = timeit.default_timer()
+        self.triples = np.array(graph_er.triples[0: (len(graph_er.triples) -
+                                        len(graph_er.triples)%batchSize)])
         self.ntriples = np.array(get_negative_samples(self.triples, len(self.entity), len(self.entity),
-                                        len(self.relation), entity_pairs, neg_rate=neg_rate, neg_rel_rate=neg_rel_rate))
-        logger.info("Neg. Sampling took: %f s", (timeit.default_timer() - start))
+                                        len(self.relation), graph_er.entity_pairs, neg_rate=neg_rate, neg_rel_rate=neg_rel_rate))
         logger.info("Shape of triples: %s", str(self.triples.shape))
         logger.info("Shape of neg triples: %s", str(self.ntriples.shape))
 
         #Define Embedding Variables
         initializer = tf.contrib.layers.xavier_initializer(uniform = False)
         regularizer = tf.contrib.layers.l2_regularizer(scale = regularizer_scale)
-        self.ent_embeddings = tf.get_variable(name = "ent_embeddings", shape = [len(entity), dimension],
+        self.ent_embeddings = tf.get_variable(name = "ent_embeddings", shape = [len(self.entity), dimension],
                                     initializer = initializer, regularizer = regularizer)
-        self.rel_embeddings = tf.get_variable(name = "rel_embeddings", shape = [len(relation), dimension],
+        self.rel_embeddings = tf.get_variable(name = "rel_embeddings", shape = [len(self.relation), dimension],
                                     initializer = initializer, regularizer = regularizer)
 
         #Define Placeholders for input

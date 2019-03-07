@@ -6,11 +6,14 @@ from common import get_logger
 logger = get_logger('RL.ER.GRAPH_ER')
 
 class Graph_ER(object):
-    entity = None
-    relation = None
-    triples = None
-    entity_pairs = None
-    true_pairs = None
+    #Knowledg Graph Data structures
+    entity = None # List of all unique Entities e.g. Cora1, 1994, etc
+    relation = None # List of all unique Relationships e.g. author, year, etc.
+    triples = None # List of triplets of form (entity_id, entity_id, relation_id)
+    entity_pairs = None # List of tuples of form (entity_id, entity_id). Hypothesis space.
+    true_pairs = None # List of tuples of form (entity_id, entity_id). Ground Truth.
+
+    #Knowledge Graph file names
     dataset_prefix = None
     entity_file_suffix = '_entity_id.txt'
     relation_file_suffix = '_relation_id.txt'
@@ -19,37 +22,51 @@ class Graph_ER(object):
     true_pairs_files_suffix = '_true_pairs.txt'
 
 
-    def __init__(self, dataset_prefix):
-        self.dataset_prefix = config.BASE_ER_GRAPH_FOLDER + dataset_prefix
+    def __init__(self, dataset, rebuild=False):
+        self.model = dataset()
+        self.dataset_prefix = config.BASE_ER_GRAPH_FOLDER + str(self.model)
+        if rebuild:
+            self.rebuild_graph()
+        else:
+            self.load_kg_er_model()
+
+    def rebuild_graph(self):
+        entity, relation, triples, entity_pairs, true_pairs = self.model.get_er_model()
+        return self.export_kg_er_model(entity, relation, triples, entity_pairs, true_pairs)
 
     def load_kg_er_model(self):
-        with open(self.dataset_prefix + self.entity_file_suffix, "r") as f:
-            self.entity = [e.strip() for e in f.readlines()]
-        with open(self.dataset_prefix + self.relation_file_suffix, "r") as f:
-            self.relation = [r.strip() for r in f.readlines()]
-        with open(self.dataset_prefix + self.triples_file_suffix, "r") as f:
-            self.triples = [t.strip().split(',') for t in f.readlines()]
-            self.triples = [(int(h), int(t), int(r)) for (h,t,r) in self.triples]
-        with open(self.dataset_prefix + self.entity_pairs_files_suffix, "r") as f:
-            self.entity_pairs = [ep.strip().split(',') for ep in f.readlines()]
-            self.entity_pairs = [(int(h), int(t)) for (h,t) in self.entity_pairs]
-        with open(self.dataset_prefix + self.true_pairs_files_suffix, "r") as f:
-            self.true_pairs = [tp.strip().split(',') for tp in f.readlines()]
-            self.true_pairs = [(int(h), int(t)) for (h,t) in self.true_pairs]
-            self.true_pairs = pd.MultiIndex.from_tuples(self.true_pairs)
+        try:
+            with open(self.dataset_prefix + self.entity_file_suffix, "r") as f:
+                self.entity = [e.strip() for e in f.readlines()]
+            with open(self.dataset_prefix + self.relation_file_suffix, "r") as f:
+                self.relation = [r.strip() for r in f.readlines()]
+            with open(self.dataset_prefix + self.triples_file_suffix, "r") as f:
+                self.triples = [t.strip().split(',') for t in f.readlines()]
+                self.triples = [(int(h), int(t), int(r)) for (h,t,r) in self.triples]
+            with open(self.dataset_prefix + self.entity_pairs_files_suffix, "r") as f:
+                self.entity_pairs = [ep.strip().split(',') for ep in f.readlines()]
+                self.entity_pairs = [(int(h), int(t)) for (h,t) in self.entity_pairs]
+            with open(self.dataset_prefix + self.true_pairs_files_suffix, "r") as f:
+                self.true_pairs = [tp.strip().split(',') for tp in f.readlines()]
+                self.true_pairs = [(int(h), int(t)) for (h,t) in self.true_pairs]
+                self.true_pairs = pd.MultiIndex.from_tuples(self.true_pairs)
 
-        logger.info("ER Graph loaded for %s. Entity: %d, Realtion: %d, Triples: %d",
-            self.dataset_prefix, len(self.entity), len(self.relation), len(self.triples))
-        return (self.entity, self.relation, self.triples, self.entity_pairs, self.true_pairs)
-
+            logger.info("ER Graph loaded for %s. Entity: %d, Realtion: %d, Triples: %d",
+                self.dataset_prefix, len(self.entity), len(self.relation), len(self.triples))
+            return (self.entity, self.relation, self.triples, self.entity_pairs, self.true_pairs)
+        except IOError:
+            logger.error("ER Graph files Not Found. Rebuilding Graph.....")
+            return self.rebuild_graph()
 
     def export_kg_er_model(self, entity, relation, triples, entity_pairs, true_pairs):
+        #Generate file names
         e_file = self.dataset_prefix + self.entity_file_suffix
         r_file = self.dataset_prefix + self.relation_file_suffix
         t_file = self.dataset_prefix + self.triples_file_suffix
         ep_file = self.dataset_prefix + self.entity_pairs_files_suffix
         tp_file = self.dataset_prefix + self.true_pairs_files_suffix
 
+        #Write Knowledge Graph to files
         with open(e_file, "w+") as f:
             for e in entity:
                 try:
@@ -77,4 +94,11 @@ class Graph_ER(object):
                 f.write("%d,%d\n" % (h,t))
 
         logger.info("ER Graph exported for %s", str(self.dataset_prefix))
-        return True
+
+        #Update current object.
+        self.entity = entity
+        self.relation = relation
+        self.triples = triples
+        self.entity_pairs = entity_pairs
+        self.true_pairs = true_pairs
+        return (self.entity, self.relation, self.triples, self.entity_pairs, self.true_pairs)

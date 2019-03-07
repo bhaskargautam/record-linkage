@@ -118,16 +118,27 @@ class Census(object):
         compare_cl.exact(29, 29, label='normalizedOccupation')
         return compare_cl
 
-    def get_er_model(self):
+    def get_er_model(self, data_type='train'):
+        assert data_type in ['train', 'test', 'val', 'all'], "Invalid Data Type requested. \
+            Allowed values: 'train', 'test', 'val', 'all'"
+
         entity = []
         relation = ["same_as", "name", "surname", "surname2", "yob", "civil", "occupation"]
         triples = []
         dni_mapping = {}
         surname_mapping = {}
-        data_1940 = []
-        data_1936 = []
+        data_1940 = [] # List of individual Enity Ids in dataset A
+        data_1936 = [] # List of individual Enity Ids in dataset B
 
-        for (dataset, data) in [(self.trainDataA, data_1940), (self.trainDataB, data_1936)]:
+        data_for_graph = []
+        if data_type in ['train', 'all']:
+            data_for_graph.extend([(self.trainDataA, data_1940), (self.trainDataB, data_1936)])
+        if data_type in ['test', 'all']:
+            data_for_graph.extend([(self.testDataA, data_1940), (self.testDataB, data_1936)])
+        if data_type in ['val', 'all']:
+            data_for_graph.extend([(self.valDataA, data_1940), (self.valDataB, data_1936)])
+
+        for (dataset, data) in data_for_graph:
             for record in dataset.iterrows():
                 record = record[1]
 

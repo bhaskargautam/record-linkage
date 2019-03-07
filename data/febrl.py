@@ -134,7 +134,10 @@ class FEBRL(object):
         compare_cl.exact('state', 'state', label='state')
         return compare_cl
 
-    def get_er_model(self):
+    def get_er_model(self, data_type='train'):
+        assert data_type in ['train', 'test', 'val', 'all'], "Invalid Data Type requested. \
+            Allowed values: 'train', 'test', 'val', 'all'"
+
         entity = []
         relation = ['name', 'surname', 'state', 'dob', 'postcode', 'same_as']
         triples = []
@@ -143,8 +146,16 @@ class FEBRL(object):
         dataA = {}
         dataB = {}
         given_name_dict = {}
-        for (dataset, data) in [(self.trainDataA, dataA), (self.trainDataB, dataB)]:
-            #Also include test data (self.testDataA, dataA), (self.testDataB, dataB)]:
+
+        data_for_graph = []
+        if data_type in ['train', 'all']:
+            data_for_graph.extend([(self.trainDataA, dataA), (self.trainDataB, dataB)])
+        if data_type in ['test', 'all']:
+            data_for_graph.extend([(self.testDataA, dataA), (self.testDataB, dataB)])
+        if data_type in ['val', 'all']:
+            data_for_graph.extend([(self.valDataA, dataA), (self.valDataB, dataB)])
+
+        for (dataset, data) in data_for_graph:
 
             for record in dataset.iterrows():
                 #new entity for each record

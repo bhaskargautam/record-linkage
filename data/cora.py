@@ -168,15 +168,39 @@ class Cora(object):
 
         return compare_cl
 
-    def get_er_model(self):
+    def get_er_model(self, data_type='train'):
+        assert data_type in ['train', 'test', 'val', 'all'], "Invalid Data Type requested. \
+            Allowed values: 'train', 'test', 'val', 'all'"
         entity = []
         relation = []
         triples = []
         dni_mapping = {}
         enitity_id_mapping = {}
 
+        allowed_record_ids_A = []
+        allowed_record_ids_B = []
+        if data_type in ['train', 'all']:
+            allowed_record_ids_A.extend(self.trainDataA['id'].tolist())
+            allowed_record_ids_B.extend(self.trainDataB['id'].tolist())
+        if data_type in ['test', 'all']:
+            allowed_record_ids_A.extend(self.testDataA['id'].tolist())
+            allowed_record_ids_B.extend(self.testDataB['id'].tolist())
+        if data_type in ['val', 'all']:
+            allowed_record_ids_A.extend(self.valDataA['id'].tolist())
+            allowed_record_ids_B.extend(self.valDataB['id'].tolist())
+
+        allowed_record_ids_A = set(allowed_record_ids_A)
+        allowed_record_ids_B = set(allowed_record_ids_B)
+
         for dni in self.data:
             for record in self.data[dni]:
+                if str(record.get("id")) not in allowed_record_ids_A and \
+                        str(record.get("id")) not in allowed_record_ids_B:
+                    logger.debug("Skipping record id %s, since not in requested\
+                                 data_type %s", str(record.get("id")), data_type)
+                    continue
+
+                #Create new entity of each record.
                 entity.append("cora" + str(record.get("id") + "_" + str(dni)))
                 entity_id = len(entity) - 1;
                 enitity_id_mapping[str(record.get("id"))] = entity_id
@@ -252,9 +276,9 @@ class Cora(object):
         #Extract candidate links and true links
         entity_pairs = []
         true_pairs = []
-        for a in self.trainDataA['id']:#.append(self.testDataA['id']):
+        for a in allowed_record_ids_A:
             a_id = enitity_id_mapping[str(a)]
-            for b in self.trainDataB['id']:#.append(self.testDataB['id']):
+            for b in allowed_record_ids_B:
                 b_id = enitity_id_mapping[str(b)]
                 if (a_id == b_id):
                     continue

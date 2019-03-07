@@ -12,7 +12,7 @@ class TransH(object):
         User train method to update the embeddings.
     """
 
-    def __init__(self, entity, relation, triples, entity_pairs, dimension=10, batchSize=100,
+    def __init__(self, graph_er, dimension=10, batchSize=100,
                     learning_rate=0.1, margin=1, regularizer_scale = 0.1, neg_rate=1, neg_rel_rate=0):
         logger.info("Begin generating TransH embeddings with dimension : %d" ,dimension)
 
@@ -20,15 +20,15 @@ class TransH(object):
         self.batchSize = batchSize #BatchSize for Stochastic Gradient Decent
         self.learning_rate = learning_rate #Learning rate for optmizer
         self.margin = margin #margin or bias used for loss computation
-        self.entity = entity #List of entities in Knowledge graph
-        self.relation = relation #List of relationships in Knowledge Graph
+        self.entity = graph_er.entity #List of entities in Knowledge graph
+        self.relation = graph_er.relation #List of relationships in Knowledge Graph
         self.neg_rate = neg_rate #Number of Negative samples to generate by replacing head or tail
         self.neg_rel_rate = neg_rel_rate #Number fo negative samples by replacing realtion
 
         # List of triples. Remove last incomplete batch if any.
-        self.triples = np.array(triples[0: (len(triples) - len(triples)%batchSize)])
+        self.triples = np.array(graph_er.triples[0: (len(graph_er.triples) - len(graph_er.triples)%batchSize)])
         self.ntriples = np.array(get_negative_samples(self.triples, len(self.entity),
-                                        len(self.entity), len(self.relation), entity_pairs,
+                                        len(self.entity), len(self.relation), graph_er.entity_pairs,
                                         neg_rate=neg_rate, neg_rel_rate=neg_rel_rate))
         logger.info("Shape of triples: %s", str(self.triples.shape))
         logger.info("Shape of neg triples: %s", str(self.ntriples.shape))
@@ -37,11 +37,11 @@ class TransH(object):
         initializer = tf.contrib.layers.xavier_initializer(uniform = False)
         regularizer = tf.contrib.layers.l2_regularizer(scale = regularizer_scale)
 
-        self.ent_embeddings = tf.get_variable(name = "ent_embeddings", shape = [len(entity), dimension],
+        self.ent_embeddings = tf.get_variable(name = "ent_embeddings", shape = [len(self.entity), dimension],
                                     initializer = initializer, regularizer = regularizer)
-        self.rel_embeddings = tf.get_variable(name = "rel_embeddings", shape = [len(relation), dimension],
+        self.rel_embeddings = tf.get_variable(name = "rel_embeddings", shape = [len(self.relation), dimension],
                                     initializer = initializer, regularizer = regularizer)
-        self.norm_vector = tf.get_variable(name = "norm_vector", shape = [len(relation), dimension],
+        self.norm_vector = tf.get_variable(name = "norm_vector", shape = [len(self.relation), dimension],
                                     initializer = initializer, regularizer = regularizer)
 
         #Define Placeholders for input
@@ -66,10 +66,13 @@ class TransH(object):
         pos_h = tf.nn.l2_normalize(pos_h, 1)
         pos_t = tf.nn.l2_normalize(pos_t, 1)
         pos_r = tf.nn.l2_normalize(pos_r, 1)
+
         pos_nh = tf.nn.l2_normalize(pos_nh, 1)
         pos_nt = tf.nn.l2_normalize(pos_nt, 1)
         pos_nr = tf.nn.l2_normalize(pos_nr, 1)
+
         pos_norm = tf.nn.l2_normalize(pos_norm, 1)
+        pos_nnorm = tf.nn.l2_normalize(pos_nnorm, 1)
 
         #Project entities to hyperplane
         pos_h = self._transfer(pos_h, pos_norm)
