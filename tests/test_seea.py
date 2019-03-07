@@ -64,7 +64,7 @@ class Test_SEEA(unittest.TestCase):
         seea.close_tf_session()
 
     def get_default_params(self):
-        return {'beta': 10, 'max_iter' : 10, 'dimension': 80, 'learning_rate' : 0.1, 'batchSize' : 10,
+        return {'beta': 100, 'max_iter' : 100, 'dimension': 80, 'learning_rate' : 0.1, 'batchSize' : 100,
                 'margin' : 1, 'regularizer_scale' : 0.1, 'max_epochs' : 100, 'neg_rate' : 10, 'neg_rel_rate': 0}
 
     def test_seea_cora(self):
