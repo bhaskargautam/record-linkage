@@ -244,7 +244,8 @@ class SEEA(object):
                                 neg_rate=self.neg_rate, neg_rel_rate=self.neg_rel_rate))
         return len(self.rtriples)
 
-    def seea_iterate(self, entity_pairs, true_pairs, beta=10, max_iter=100, max_epochs=100):
+    def seea_iterate(self, entity_pairs, true_pairs, beta=10, max_iter=100, max_epochs=100,
+                                swap_relations=False):
         predicted_pairs = []
         for j in range(0, max_iter):
             loss = self.train(max_epochs)
@@ -258,6 +259,8 @@ class SEEA(object):
                 return predicted_pairs
 
             new_triples = [(e1, e2, len(self.relation) - 1) for (e1, e2) in aligned_pairs]
+            if swap_relations:
+                new_triples.extend(self.swap_parameters(aligned_pairs))
             rtriple_count = self.add_rel_triples(new_triples)
             logger.info("New size of Rtriples %d", rtriple_count)
             predicted_pairs.extend(aligned_pairs)
@@ -269,6 +272,17 @@ class SEEA(object):
 
         logger.info("End of SEEA iterations: Max iteration reached.")
         return predicted_pairs
+
+    def swap_parameters(self, aligned_pairs):
+        new_triples = []
+        for (a, b) in aligned_pairs:
+            at = filter(lambda (h,t,r): h == a, self.rtriples)
+            new_triples.extend(map(lambda (h,t,r): (b,t,r), at))
+
+            bt = filter(lambda (h,t,r): h == b, self.rtriples)
+            new_triples.extend(map(lambda (h,t,r): (a,t,r), bt))
+
+        return new_triples
 
     def __del__(self):
         self.close_tf_session()
