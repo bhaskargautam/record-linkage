@@ -8,24 +8,26 @@ logger = get_logger('RL.EAR.SEEA')
 
 class SEEA(object):
 
-    def __init__(self, entity, attribute, relation, value, atriples, rtriples, entity_pairs,
-                        dimension=10, learning_rate=0.1, batchSize=100, margin=1,
-                        regularizer_scale = 0.1, neg_rate=1, neg_rel_rate=0):
-        self.entity = entity
-        self.attribute = attribute
-        self.relation = relation
-        self.value = value
+    def __init__(self, graph_ear, dimension=10, learning_rate=0.1, batchSize=100,
+                        margin=1, regularizer_scale = 0.1, neg_rate=1, neg_rel_rate=0):
+        self.entity = graph_ear.entity
+        self.attribute = graph_ear.attribute
+        self.relation = graph_ear.relation
+        self.value = graph_ear.value
         self.dimension = dimension
         self.learning_rate = learning_rate
         self.batchSize = batchSize
         self.margin = margin
         self.neg_rate = neg_rate
         self.neg_rel_rate = neg_rel_rate
-        self.entity_pairs = entity_pairs
+        self.entity_pairs = graph_ear.entity_pairs
+        self.true_pairs = graph_ear.true_pairs
 
         # List of triples. Remove last incomplete batch if any.
-        self.atriples = np.array(atriples[0: (len(atriples) - len(atriples)%batchSize)])
-        self.rtriples = np.array(rtriples[0: (len(rtriples) - len(rtriples)%batchSize)])
+        self.atriples = np.array(graph_ear.atriples[0: (len(graph_ear.atriples) -
+                                            len(graph_ear.atriples)%batchSize)])
+        self.rtriples = np.array(graph_ear.rtriples[0: (len(graph_ear.rtriples) -
+                                            len(graph_ear.rtriples)%batchSize)])
         logger.info("Modified Atriples size: %d", len(self.atriples))
         logger.info("Modified Rtriples size: %d", len(self.rtriples))
 
@@ -34,22 +36,22 @@ class SEEA(object):
                                         len(self.value), len(self.attribute), [],
                                         neg_rate=neg_rate, neg_rel_rate =neg_rel_rate))
         self.nrtriples = np.array(get_negative_samples(self.rtriples, len(self.entity),
-                                        len(self.entity), len(self.relation), entity_pairs,
+                                        len(self.entity), len(self.relation), self.entity_pairs,
                                         neg_rate=neg_rate, neg_rel_rate=neg_rel_rate))
 
         #Define Embedding Variables
         initializer = tf.contrib.layers.xavier_initializer(uniform = False)
         regularizer = tf.contrib.layers.l2_regularizer(scale = regularizer_scale)
 
-        self.ent_embeddings = tf.get_variable(name = "ent_embeddings", shape = [len(entity), dimension],
+        self.ent_embeddings = tf.get_variable(name = "ent_embeddings", shape = [len(self.entity), dimension],
                                     initializer = initializer, regularizer = regularizer)
-        self.rel_embeddings = tf.get_variable(name = "rel_embeddings", shape = [len(relation), dimension],
+        self.rel_embeddings = tf.get_variable(name = "rel_embeddings", shape = [len(self.relation), dimension],
                                     initializer = initializer, regularizer = regularizer)
-        self.attr_embeddings = tf.get_variable(name = "attr_embeddings", shape = [len(attribute), dimension],
+        self.attr_embeddings = tf.get_variable(name = "attr_embeddings", shape = [len(self.attribute), dimension],
                                     initializer = initializer, regularizer = regularizer)
-        self.val_embeddings = tf.get_variable(name = "val_embeddings", shape = [len(value), dimension],
+        self.val_embeddings = tf.get_variable(name = "val_embeddings", shape = [len(self.value), dimension],
                                     initializer = initializer, regularizer = regularizer)
-        self.projection_matrix = tf.get_variable(name = "projection_matrix", shape = [len(attribute), dimension],
+        self.projection_matrix = tf.get_variable(name = "projection_matrix", shape = [len(self.attribute), dimension],
                                     initializer = initializer, regularizer = regularizer)
 
         #Define Placeholders for input
@@ -189,10 +191,10 @@ class SEEA(object):
 
         return loss
 
-    def get_top_beta_pairs(self, entity_pairs, beta):
+    def get_top_beta_pairs(self, beta):
         closet_neighbour = [None] * len(self.entity)
         ent_embeddings = self.get_ent_embeddings()
-        for (e1,e2) in entity_pairs:
+        for (e1,e2) in self.entity_pairs:
             #Compute cosine distance
             distance = abs(spatial.distance.cosine(ent_embeddings[e1], ent_embeddings[e2]))
 
@@ -211,7 +213,7 @@ class SEEA(object):
                 closet_neighbour[e2]['d'] = distance
 
         aligned_pairs = []
-        for (e1,e2) in entity_pairs:
+        for (e1,e2) in self.entity_pairs:
             #Skip if no closest neighbour computed
             if closet_neighbour[e1]['e'] == -1:
                 continue
@@ -244,14 +246,13 @@ class SEEA(object):
                                 neg_rate=self.neg_rate, neg_rel_rate=self.neg_rel_rate))
         return len(self.rtriples)
 
-    def seea_iterate(self, entity_pairs, true_pairs, beta=10, max_iter=100, max_epochs=100,
-                                swap_relations=False):
+    def seea_iterate(self, beta=10, max_iter=100, max_epochs=100, swap_relations=False):
         predicted_pairs = []
         for j in range(0, max_iter):
             loss = self.train(max_epochs)
             logger.info("Training Complete with loss: %f for iteration: %d", loss, j)
 
-            aligned_pairs = self.get_top_beta_pairs(entity_pairs, beta)
+            aligned_pairs = self.get_top_beta_pairs(beta)
             logger.info("Found %d new aligned pairs for iteration: %d", len(aligned_pairs), j)
 
             if len(aligned_pairs) == 0:
@@ -267,8 +268,8 @@ class SEEA(object):
 
             #Removed aligned pairs from candidate pairs
             for (e1, e2) in aligned_pairs:
-                entity_pairs.remove((e1,e2))
-                logger.info("%d, %d aligned. In True pairs: %s", e1, e2, (e1, e2) in true_pairs)
+                self.entity_pairs.remove((e1,e2))
+                logger.info("%d, %d aligned. In True pairs: %s", e1, e2, (e1, e2) in self.true_pairs)
 
         logger.info("End of SEEA iterations: Max iteration reached.")
         return predicted_pairs

@@ -33,8 +33,7 @@ class TestGraphExport(unittest.TestCase):
     def _test_ear_graph_export(self, dataset):
         model = dataset()
         entity, attribute, relation, value, atriples, rtriples, entity_pairs, true_pairs = model.get_ear_model()
-        graph = Graph_EAR(str(model))
-        graph.export_kg_ear_model(entity, attribute, relation, value, atriples, rtriples, entity_pairs, true_pairs)
+        graph = Graph_EAR(dataset, rebuild=True)
         e,a,r,v,at,rt,ep,tp = graph.load_kg_ear_model()
         self.assertEqual(len(e), len(entity))
         self.assertEqual(len(a), len(attribute))

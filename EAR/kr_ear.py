@@ -8,13 +8,12 @@ logger = get_logger('RL.EAR.KR_EAR')
 
 class KR_EAR(object):
 
-    def __init__(self, entity, attribute, relation, value, atriples, rtriples, entity_pairs,
-                                dimension=10, learning_rate=0.1, batchSize=100, margin=1,
+    def __init__(self, graph_ear, dimension=10, learning_rate=0.1, batchSize=100, margin=1,
                                 regularizer_scale = 0.1, neg_rate=1, neg_rel_rate=0):
-        self.entity = entity
-        self.attribute = attribute
-        self.relation = relation
-        self.value = value
+        self.entity = graph_ear.entity
+        self.attribute = graph_ear.attribute
+        self.relation = graph_ear.relation
+        self.value = graph_ear.value
         self.dimension = dimension
         self.learning_rate = learning_rate
         self.batchSize = batchSize
@@ -23,14 +22,14 @@ class KR_EAR(object):
         self.neg_rel_rate = neg_rel_rate
 
         # List of triples. Remove last incomplete batch if any.
-        self.atriples = np.array(atriples[0: (len(atriples) - len(atriples)%batchSize)])
-        self.rtriples = np.array(rtriples[0: (len(rtriples) - len(rtriples)%batchSize)])
+        self.atriples = np.array(graph_ear.atriples[0: (len(graph_ear.atriples) - len(graph_ear.atriples)%batchSize)])
+        self.rtriples = np.array(graph_ear.rtriples[0: (len(graph_ear.rtriples) - len(graph_ear.rtriples)%batchSize)])
         logger.info("Modified Atriples size: %d", len(self.atriples))
         logger.info("Modified Rtriples size: %d", len(self.rtriples))
 
         #Collect Negative Samples
         self.nrtriples = np.array(get_negative_samples(self.rtriples, len(self.entity),
-                                    len(self.entity), len(self.relation), entity_pairs,
+                                    len(self.entity), len(self.relation), graph_ear.entity_pairs,
                                     neg_rate = self.neg_rate, neg_rel_rate = self.neg_rel_rate))
         self.natriples = np.array(get_negative_samples(self.atriples, len(self.entity),
                                 len(self.value), len(self.attribute), [],
@@ -40,15 +39,15 @@ class KR_EAR(object):
         initializer = tf.contrib.layers.xavier_initializer(uniform = False)
         regularizer = tf.contrib.layers.l2_regularizer(scale = regularizer_scale)
 
-        self.ent_embeddings = tf.get_variable(name = "ent_embeddings", shape = [len(entity), dimension],
+        self.ent_embeddings = tf.get_variable(name = "ent_embeddings", shape = [len(self.entity), dimension],
                                     initializer = initializer, regularizer = regularizer)
-        self.rel_embeddings = tf.get_variable(name = "rel_embeddings", shape = [len(relation), dimension],
+        self.rel_embeddings = tf.get_variable(name = "rel_embeddings", shape = [len(self.relation), dimension],
                                     initializer = initializer, regularizer = regularizer)
-        self.attr_embeddings = tf.get_variable(name = "attr_embeddings", shape = [len(attribute), dimension],
+        self.attr_embeddings = tf.get_variable(name = "attr_embeddings", shape = [len(self.attribute), dimension],
                                     initializer = initializer, regularizer = regularizer)
-        self.val_embeddings = tf.get_variable(name = "val_embeddings", shape = [len(value), dimension],
+        self.val_embeddings = tf.get_variable(name = "val_embeddings", shape = [len(self.value), dimension],
                                     initializer = initializer, regularizer = regularizer)
-        self.projection_matrix = tf.get_variable(name = "projection_matrix", shape = [len(attribute), dimension],
+        self.projection_matrix = tf.get_variable(name = "projection_matrix", shape = [len(self.attribute), dimension],
                                     initializer = initializer, regularizer = regularizer)
 
         #Define Placeholders for input

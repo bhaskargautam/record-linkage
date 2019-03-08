@@ -257,7 +257,10 @@ class Census(object):
         true_pairs = pd.MultiIndex.from_tuples(true_pairs)
         return (entity, relation, triples, entity_pairs, true_pairs)
 
-    def get_ear_model(self):
+    def get_ear_model(self, data_type='train'):
+        assert data_type in ['train', 'test', 'val', 'all'], "Invalid Data Type requested. \
+            Allowed values: 'train', 'test', 'val', 'all'"
+
         entity = []
         attribute = ["name", "surname", "surname2", "yob", "civil", "occupation"]
         relation = ["same_as"]
@@ -269,7 +272,16 @@ class Census(object):
         data_1940 = []
         data_1936 = []
 
-        for (dataset, data) in [(self.trainDataA, data_1940), (self.trainDataB, data_1936)]:
+        data_for_graph = []
+        if data_type in ['train', 'all']:
+            data_for_graph.extend([(self.trainDataA, data_1940), (self.trainDataB, data_1936)])
+        if data_type in ['test', 'all']:
+            data_for_graph.extend([(self.testDataA, data_1940), (self.testDataB, data_1936)])
+        if data_type in ['val', 'all']:
+            data_for_graph.extend([(self.valDataA, data_1940), (self.valDataB, data_1936)])
+
+
+        for (dataset, data) in data_for_graph:
             for record in dataset.iterrows():
                 record = record[1]
 
@@ -344,7 +356,7 @@ class Census(object):
                     civil_id = len(attr_value) - 1
 
                 #Normalized relationship with head
-                rel = record[21].replace(' ', '_')
+                rel = str(record[21]).replace(' ', '_')
                 if rel in relation:
                     relation_id = relation.index(rel)
                 else:

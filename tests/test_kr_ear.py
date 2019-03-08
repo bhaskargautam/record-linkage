@@ -20,19 +20,12 @@ from scipy import spatial
 
 class Test_KR_EAR(unittest.TestCase):
 
-    def _test_kr_ear(self, dataset, file_prefix, params):
-        logger = get_logger('RL.Test.KR_EAR.' + str(file_prefix))
-        try:
-            graph = Graph_EAR(file_prefix)
-            entity, attribute, relation, value, atriples, rtriples, \
-                entity_pairs, true_pairs = graph.load_kg_ear_model()
-        except IOError:
-            model = dataset()
-            entity, attribute, relation, value, atriples, rtriples, \
-                entity_pairs, true_pairs = model.get_ear_model()
+    def _test_kr_ear(self, dataset, params):
+        graph = Graph_EAR(dataset)
+        model = dataset()
+        logger = get_logger('RL.Test.KR_EAR.' + str(model))
 
-        kr_ear = KR_EAR(entity, attribute, relation, value, atriples, rtriples, entity_pairs,
-                        dimension=params['dimension'],
+        kr_ear = KR_EAR(graph, dimension=params['dimension'],
                         learning_rate=params['learning_rate'],
                         margin=params['margin'],
                         regularizer_scale=params['regularizer_scale'],
@@ -44,28 +37,28 @@ class Test_KR_EAR(unittest.TestCase):
 
         ent_embeddings = kr_ear.get_ent_embeddings()
         result_prob = []
-        for i in range(0, len(entity_pairs)):
+        for i in range(0, len(graph.entity_pairs)):
             distance = abs(spatial.distance.cosine(
-                                ent_embeddings[entity_pairs[i][0]],
-                                ent_embeddings[entity_pairs[i][1]]))
-            result_prob.append((entity_pairs[i][0], entity_pairs[i][1], distance))
-            #logger.info("i: %d, distance: %f true_pairs: %s", i, distance, entity_pairs[i] in true_pairs)
+                                ent_embeddings[graph.entity_pairs[i][0]],
+                                ent_embeddings[graph.entity_pairs[i][1]]))
+            result_prob.append((graph.entity_pairs[i][0], graph.entity_pairs[i][1], distance))
+            #logger.info("i: %d, distance: %f true_pairs: %s", i, distance, graph.entity_pairs[i] in true_pairs)
 
         #Write Embeddings to file
-        export_embeddings('ear', file_prefix, 'KR_EAR', entity, ent_embeddings)
-        export_result_prob(dataset, 'ear', file_prefix, 'KR_EAR', entity, result_prob, true_pairs)
-        optimal_threshold, max_fscore = get_optimal_threshold(result_prob, true_pairs)
+        export_embeddings('ear', str(model), 'KR_EAR', graph.entity, ent_embeddings)
+        export_result_prob(dataset, 'ear', str(model), 'KR_EAR', graph.entity, result_prob, graph.true_pairs)
+        optimal_threshold, max_fscore = get_optimal_threshold(result_prob, graph.true_pairs)
 
         try:
             logger.info("MAX FSCORE: %f AT : %f", max_fscore, optimal_threshold)
             result = pd.MultiIndex.from_tuples([(e1, e2) for (e1, e2, d) in result_prob if d <= optimal_threshold])
             params['threshold'] = optimal_threshold
-            log_quality_results(logger, result, true_pairs, len(entity_pairs), params)
+            log_quality_results(logger, result, graph.true_pairs, len(graph.entity_pairs), params)
         except:
             logger.info("Zero Reults")
 
         #Log MAP, MRR and Hits@K
-        ir_metrics = InformationRetrievalMetrics(result_prob, true_pairs)
+        ir_metrics = InformationRetrievalMetrics(result_prob, graph.true_pairs)
         ir_metrics.log_metrics(logger)
 
         kr_ear.close_tf_session()
@@ -75,15 +68,15 @@ class Test_KR_EAR(unittest.TestCase):
                 'regularizer_scale' : 0.1, 'batchSize' : 100, 'neg_rate' : 10, 'neg_rel_rate' : 1}
 
     def test_krear_cora(self):
-        self._test_kr_ear(Cora, config.CORA_FILE_PREFIX, self.get_default_params())
+        self._test_kr_ear(Cora, self.get_default_params())
 
     def test_krear_febrl(self):
-        self._test_kr_ear(FEBRL, config.FEBRL_FILE_PREFIX, self.get_default_params())
+        self._test_kr_ear(FEBRL, self.get_default_params())
 
     def test_krear_census(self):
-        self._test_kr_ear(Census, config.CENSUS_FILE_PREFIX, self.get_default_params())
+        self._test_kr_ear(Census, self.get_default_params())
 
-    def _test_grid_search(self, model, file_prefix):
+    def _test_grid_search(self, model):
         dimension= [50, 80, 120]
         batchSize= [100]
         learning_rate= [0.1, 0.2]
@@ -102,7 +95,7 @@ class Test_KR_EAR(unittest.TestCase):
                             'regularizer_scale' : reg, 'neg_rate' : nr, 'neg_rel_rate' : nrr}
             logger.info("\nPARAMS: %s", str(params))
             count = count + 1
-            cur_fscore = self._test_kr_ear(model, file_prefix, params)
+            cur_fscore = self._test_kr_ear(model, params)
             if max_fscore <= cur_fscore:
                 max_fscore = cur_fscore
 
@@ -110,10 +103,10 @@ class Test_KR_EAR(unittest.TestCase):
         logger.info("Max Fscore: %f", max_fscore)
 
     def test_grid_search_cora(self):
-        self._test_grid_search(Cora, config.CORA_FILE_PREFIX)
+        self._test_grid_search(Cora)
 
     def test_grid_search_febrl(self):
-        self._test_grid_search(FEBRL, config.FEBRL_FILE_PREFIX)
+        self._test_grid_search(FEBRL)
 
     def test_grid_search_census(self):
-        self._test_grid_search(Census, config.CENSUS_FILE_PREFIX)
+        self._test_grid_search(Census)

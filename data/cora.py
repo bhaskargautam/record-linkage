@@ -292,7 +292,10 @@ class Cora(object):
         true_pairs = pd.MultiIndex.from_tuples(true_pairs)
         return (entity, relation, triples, entity_pairs, true_pairs)
 
-    def get_ear_model(self):
+    def get_ear_model(self, data_type='train'):
+        assert data_type in ['train', 'test', 'val', 'all'], "Invalid Data Type requested. \
+            Allowed values: 'train', 'test', 'val', 'all'"
+
         entity = []
         attribute = []
         relation = []
@@ -302,8 +305,30 @@ class Cora(object):
         dni_mapping = {}
         enitity_id_mapping = {}
 
+        allowed_record_ids_A = []
+        allowed_record_ids_B = []
+        if data_type in ['train', 'all']:
+            allowed_record_ids_A.extend(self.trainDataA['id'].tolist())
+            allowed_record_ids_B.extend(self.trainDataB['id'].tolist())
+        if data_type in ['test', 'all']:
+            allowed_record_ids_A.extend(self.testDataA['id'].tolist())
+            allowed_record_ids_B.extend(self.testDataB['id'].tolist())
+        if data_type in ['val', 'all']:
+            allowed_record_ids_A.extend(self.valDataA['id'].tolist())
+            allowed_record_ids_B.extend(self.valDataB['id'].tolist())
+
+        allowed_record_ids_A = set(allowed_record_ids_A)
+        allowed_record_ids_B = set(allowed_record_ids_B)
+
         for dni in self.data:
             for record in self.data[dni]:
+                if str(record.get("id")) not in allowed_record_ids_A and \
+                        str(record.get("id")) not in allowed_record_ids_B:
+                    logger.debug("Skipping record id %s, since not in requested\
+                                 data_type %s", str(record.get("id")), data_type)
+                    continue
+
+                #Create new entity for each record.
                 entity.append("cora" + str(record.get("id") + "_" + str(dni)))
                 entity_id = len(entity) - 1;
                 dni_mapping[str(entity_id)] = dni
@@ -379,9 +404,9 @@ class Cora(object):
 
         entity_pairs = []
         true_pairs = []
-        for a in self.trainDataA['id']:#.append(self.testDataA['id']):
+        for a in allowed_record_ids_A:
             a_id = enitity_id_mapping[str(a)]
-            for b in self.trainDataB['id']:#.append(self.testDataB['id']):
+            for b in allowed_record_ids_B:
                 b_id = enitity_id_mapping[str(b)]
                 if (a_id == b_id):
                     continue
