@@ -137,7 +137,7 @@ def export_result_prob(dataset, graph_type, dataset_prefix, method,
     false_positives = []
     with open(base_file_name + "_result_prob.tsv", "w+") as f:
         for (e1, e2, d) in result_prob:
-            f.write("%s\t%s\t%f\t%s\n" % (entity[e1], entity2[e2], d, (e1, e2) in true_pairs))
+            f.write("%s\t%s\t%f\t%s\n" % (entity[int(e1)], entity2[int(e2)], d, (e1, e2) in true_pairs))
             if (e1, e2) not in true_pairs and \
                     len(false_positives) < config.MAX_FALSE_POSITIVE_TO_LOG:
                 false_positives.append((e1, e2))
@@ -146,8 +146,8 @@ def export_result_prob(dataset, graph_type, dataset_prefix, method,
     model = dataset()
     with open(base_file_name + "_false_positives.txt", "w+") as f:
         for (e1, e2) in false_positives:
-            f.write("\nRecord A:\n%s\n" % str(model.get_entity_information(entity[e1])))
-            f.write("Record B:\n%s\n" % str(model.get_entity_information(entity2[e2])))
+            f.write("\nRecord A:\n%s\n" % str(model.get_entity_information(entity[int(e1)])))
+            f.write("Record B:\n%s\n" % str(model.get_entity_information(entity2[int(e2)])))
 
     return True
 
