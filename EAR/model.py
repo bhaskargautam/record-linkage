@@ -6,18 +6,7 @@ from common import get_logger
 logger = get_logger('RL.EAR.GRAPH_EAR')
 
 class Graph_EAR(object):
-    #Knowledg Graph Data structures
-    entity = None # List of all unique Entities e.g. Cora1, rec-1-org etc
-    attribute = None # List of all unique Attributes e.g. year, author, etc
-    relation = None # List of all unique Relation e.g. same_as
-    value = None # List of all unique Values/literals e.g. 893, 1994, lehman etc
-    atriples = None # List of Attributional Triplets of form (Cora1, 1994, year)
-    rtriples = None # List of Relational Triplets of form (Cora1, Cora2, same_as)
-    entity_pairs = None # List of tuples of form (entity_id, entity_id). Hypothesis space.
-    true_pairs = None # List of tuples of form (entity_id, entity_id). Ground Truth.
-
-    #Knowledge Graph file names
-    dataset_prefix = None
+    #Knowledge Graph static file names
     entity_file_suffix = '_ear_entity_id.txt'
     attribute_file_suffix = '_ear_attribute_id.txt'
     relation_file_suffix = '_ear_relation_id.txt'
@@ -28,6 +17,16 @@ class Graph_EAR(object):
     true_pairs_files_suffix = '_ear_true_pairs.txt'
 
     def __init__(self, dataset, rebuild=False):
+        #Knowledg Graph Data structures
+        self.entity = None # List of all unique Entities e.g. Cora1, rec-1-org etc
+        self.attribute = None # List of all unique Attributes e.g. year, author, etc
+        self.relation = None # List of all unique Relation e.g. same_as
+        self.value = None # List of all unique Values/literals e.g. 893, 1994, lehman etc
+        self.atriples = None # List of Attributional Triplets of form (Cora1, 1994, year)
+        self.rtriples = None # List of Relational Triplets of form (Cora1, Cora2, same_as)
+        self.entity_pairs = None # List of tuples of form (entity_id, entity_id). Hypothesis space.
+        self.true_pairs = None # List of tuples of form (entity_id, entity_id). Ground Truth.
+
         self.model = dataset()
         self.dataset_prefix = config.BASE_EAR_GRAPH_FOLDER + str(self.model)
         if rebuild:

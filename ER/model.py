@@ -6,15 +6,7 @@ from common import get_logger
 logger = get_logger('RL.ER.GRAPH_ER')
 
 class Graph_ER(object):
-    #Knowledg Graph Data structures
-    entity = None # List of all unique Entities e.g. Cora1, 1994, etc
-    relation = None # List of all unique Relationships e.g. author, year, etc.
-    triples = None # List of triplets of form (entity_id, entity_id, relation_id)
-    entity_pairs = None # List of tuples of form (entity_id, entity_id). Hypothesis space.
-    true_pairs = None # List of tuples of form (entity_id, entity_id). Ground Truth.
-
-    #Knowledge Graph file names
-    dataset_prefix = None
+    #Knowledge Graph Static file names
     entity_file_suffix = '_entity_id.txt'
     relation_file_suffix = '_relation_id.txt'
     triples_file_suffix = '_triples.txt'
@@ -23,6 +15,13 @@ class Graph_ER(object):
 
 
     def __init__(self, dataset, rebuild=False):
+        #Knowledg Graph Data structures
+        self.entity = None # List of all unique Entities e.g. Cora1, 1994, etc
+        self.relation = None # List of all unique Relationships e.g. author, year, etc.
+        self.triples = None # List of triplets of form (entity_id, entity_id, relation_id)
+        self.entity_pairs = None # List of tuples of form (entity_id, entity_id). Hypothesis space.
+        self.true_pairs = None # List of tuples of form (entity_id, entity_id). Ground Truth.
+
         self.model = dataset()
         self.dataset_prefix = config.BASE_ER_GRAPH_FOLDER + str(self.model)
         if rebuild:
