@@ -6,6 +6,8 @@ import recordlinkage
 import pandas as pd
 import sys
 
+from logging.handlers import RotatingFileHandler
+
 def get_logger(name, filename=config.DEFAULT_LOG_FILE, level=logging.INFO):
     log_file_path = config.BASE_OUTPUT_FOLDER + filename
     formatter = logging.Formatter('%(name)s %(asctime)s %(levelname)s %(message)s')
@@ -15,7 +17,9 @@ def get_logger(name, filename=config.DEFAULT_LOG_FILE, level=logging.INFO):
     stream_handler.setLevel(level)
     stream_handler.setFormatter(formatter)
 
-    file_handler = logging.FileHandler(filename=log_file_path)
+    file_handler = RotatingFileHandler(filename=log_file_path,
+                        maxBytes=52428800, #50 MB
+                        backupCount=10)
     file_handler.setLevel(level)
     file_handler.setFormatter(formatter)
     if not logger.handlers:
@@ -125,14 +129,15 @@ def export_embeddings(graph_type, model, method, entity, ent_emebedding):
     return True
 
 def export_result_prob(dataset, graph_type, dataset_prefix, method,
-                            entity, result_prob, true_pairs):
+                            entity, result_prob, true_pairs, entity2=None):
     base_file_name = config.BASE_OUTPUT_FOLDER + str(graph_type) +  "/"
     base_file_name = base_file_name + str(dataset_prefix) + "_" + str(method)
+    entity2 = entity2 if entity2 else entity
     result_prob = sorted(result_prob, key=lambda x: x[2])
     false_positives = []
     with open(base_file_name + "_result_prob.tsv", "w+") as f:
         for (e1, e2, d) in result_prob:
-            f.write("%s\t%s\t%f\t%s\n" % (entity[e1], entity[e2], d, (e1, e2) in true_pairs))
+            f.write("%s\t%s\t%f\t%s\n" % (entity[e1], entity2[e2], d, (e1, e2) in true_pairs))
             if (e1, e2) not in true_pairs and \
                     len(false_positives) < config.MAX_FALSE_POSITIVE_TO_LOG:
                 false_positives.append((e1, e2))
@@ -142,7 +147,7 @@ def export_result_prob(dataset, graph_type, dataset_prefix, method,
     with open(base_file_name + "_false_positives.txt", "w+") as f:
         for (e1, e2) in false_positives:
             f.write("\nRecord A:\n%s\n" % str(model.get_entity_information(entity[e1])))
-            f.write("Record B:\n%s\n" % str(model.get_entity_information(entity[e2])))
+            f.write("Record B:\n%s\n" % str(model.get_entity_information(entity2[e2])))
 
     return True
 
@@ -178,12 +183,15 @@ class InformationRetrievalMetrics(object):
             else:
                 self.query_result_mapping[e1] = [e2]
 
+        for e1 in self.query_result_mapping:
+            self.query_result_mapping[e1] = set(self.query_result_mapping[e1])
+
+
     def get_mean_precisison_at_k(self, k=1):
         total_precision = 0.0
         for e1 in self.query_result_mapping:
-            results = [r for r in self.result_prob if r[0] == e1]
-            results = sorted(results, key=lambda x: x[2])
-            true_results = [1 for (a,b,d) in results[:k] if b in self.query_result_mapping[e1]]
+            results = filter(lambda r: r[0] == e1, self.result_prob)
+            true_results = filter(lambda r: r[1] in self.query_result_mapping[e1], results[:k])
             precision = len(true_results) / float(k)
             total_precision = total_precision + precision
             self.logger.debug("e1: %d, P: %f", e1, precision)
@@ -192,8 +200,7 @@ class InformationRetrievalMetrics(object):
     def get_mean_average_precision(self):
         average_precision = 0.0
         for e1 in self.query_result_mapping:
-            results = [r for r in self.result_prob if r[0] == e1]
-            results = sorted(results, key=lambda x: x[2])
+            results = filter(lambda r: r[0] == e1, self.result_prob)
 
             true_count = 0
             total_precision = 0.0
@@ -211,8 +218,7 @@ class InformationRetrievalMetrics(object):
     def get_mean_reciprocal_rank(self):
         reciprocal_rank_sum = 0.0
         for e1 in self.query_result_mapping:
-            results = [r for r in self.result_prob if r[0] == e1]
-            results = sorted(results, key=lambda x: x[2])
+            results = filter(lambda r: r[0] == e1, self.result_prob)
 
             for i in range(0, len(results)):
                 if results[i][1] in self.query_result_mapping[e1]:
@@ -222,9 +228,23 @@ class InformationRetrievalMetrics(object):
             self.logger.debug("e1: %d, RR: %f", e1, reciprocal_rank_sum)
         return reciprocal_rank_sum / len(self.query_result_mapping)
 
-    def log_metrics(self, logger):
-        logger.info("Mean Precision@1 = %f", self.get_mean_precisison_at_k(k=1))
-        logger.info("Mean Precision@10 = %f", self.get_mean_precisison_at_k(k=10))
-        logger.info("Mean Reciprocal Rank (MRR)= %f", self.get_mean_reciprocal_rank())
-        logger.info("Mean Average Precision (MAP)= %f", self.get_mean_average_precision())
+    def _write_results(self, results_for, p_at_1, p_at_10, mrr, mavp, params):
+        with open(config.BASE_OUTPUT_FOLDER + config.DEFAULT_IR_RESULT_LOG_FILE, 'a+') as f:
+            f.write("%s, %f, %f, %f, %f, %s\n" % (results_for, p_at_1, p_at_10,
+                mrr, mavp, str(params)))
+
+    def log_metrics(self, logger, params=None):
+        p_at_1 = self.get_mean_precisison_at_k(k=1)
+        logger.info("Mean Precision@1 = %f", p_at_1)
+
+        p_at_10 = self.get_mean_precisison_at_k(k=10)
+        logger.info("Mean Precision@10 = %f", p_at_10)
+
+        mrr = self.get_mean_reciprocal_rank()
+        logger.info("Mean Reciprocal Rank (MRR)= %f", mrr)
+
+        mavp = self.get_mean_average_precision()
+        logger.info("Mean Average Precision (MAP)= %f", mavp)
+
+        self._write_results(logger.name, p_at_1, p_at_10, mrr, mavp, params)
         return True

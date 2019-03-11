@@ -9,7 +9,7 @@ import recordlinkage
 import unittest
 import xml.etree.ElementTree
 
-from common import get_logger, log_quality_results, InformationRetrievalMetrics
+from common import get_logger, log_quality_results, InformationRetrievalMetrics, export_embeddings, export_result_prob
 from data.cora import Cora
 from data.febrl import FEBRL
 from data.census import Census
@@ -22,6 +22,7 @@ class TestLogisticTransH(unittest.TestCase):
         logger = get_logger('RL.Test.LogisticTransH.ERER.' + str(model))
         entA, entB, relA, relB, triA, triB, entity_pairs, prior_pairs, true_pairs = model.get_erer_model()
 
+        self.assertTrue(all([(tp in entity_pairs) for tp in true_pairs]))
         #Generate embeddings for datasetA
         transh = TransH(entA, relA, triA, prior_pairs,
                         dimension=params['dimension'],
@@ -95,6 +96,11 @@ class TestLogisticTransH(unittest.TestCase):
         result_prob = [(entity_pairs[i][0], entity_pairs[i][1], prob[i]) for i in range(0, len(prob))]
         ir_metrics = InformationRetrievalMetrics(result_prob, true_pairs)
         ir_metrics.log_metrics(logger, params)
+
+        #Export results
+        export_embeddings('erer', str(model), 'LogTransH', entA, ent_embeddingsA)
+        export_embeddings('erer', str(model), 'LogTransH', entB, ent_embeddingsB)
+        export_result_prob(dataset, 'erer', str(model), 'LogTransH', entA, result_prob, true_pairs, entB)
 
 
     def _test_logistic_transh(self, dataset, params):
