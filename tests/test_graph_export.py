@@ -56,8 +56,7 @@ class TestGraphExport(unittest.TestCase):
     def _test_erer_graph_export(self, dataset):
         model = dataset()
         entA, entB, relA, relB, triA, triB, entity_pairs, prior_pairs, true_pairs = model.get_erer_model()
-        graph = Graph_ERER(str(model))
-        graph.export_kg_erer_model(entA, entB, relA, relB, triA, triB, entity_pairs, prior_pairs, true_pairs)
+        graph = Graph_ERER(dataset, rebuild=True)
         eA, eB, rA, rB, tA, tB, ep, pp, tp = graph.load_kg_erer_model()
         self.assertEqual(len(eA), len(entA))
         self.assertEqual(len(eB), len(entB))
