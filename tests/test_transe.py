@@ -1,6 +1,7 @@
 import config
 import itertools
 import pandas as pd
+import numpy as np
 import recordlinkage
 import unittest
 
@@ -18,6 +19,7 @@ from data.census import Census
 from ER.model import Graph_ER
 from ER.transe import TransE
 from scipy import spatial
+from scipy.optimize import linear_sum_assignment
 from sklearn.metrics import precision_recall_curve
 
 class TestTransE(unittest.TestCase):
@@ -38,6 +40,7 @@ class TestTransE(unittest.TestCase):
         logger.info("Training Complete with loss: %f", loss)
 
         ent_embeddings = transe.get_ent_embeddings()
+
         result_prob = []
         for i in range(0, len(graph.entity_pairs)):
             distance = abs(spatial.distance.cosine(
@@ -60,7 +63,7 @@ class TestTransE(unittest.TestCase):
 
         #Log MAP, MRR and Hits@K
         ir_metrics = InformationRetrievalMetrics(result_prob, graph.true_pairs)
-        ir_metrics.log_metrics(logger)
+        ir_metrics.log_metrics(logger, params)
 
         transe.close_tf_session()
         return max_fscore

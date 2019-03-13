@@ -53,7 +53,7 @@ class Test_SEEA(unittest.TestCase):
 
         #Log MAP, MRR and Hits@K
         ir_metrics = InformationRetrievalMetrics(result_prob, graph.true_pairs)
-        ir_metrics.log_metrics(logger)
+        ir_metrics.log_metrics(logger, params)
 
         seea.close_tf_session()
 

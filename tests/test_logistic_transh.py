@@ -95,7 +95,7 @@ class TestLogisticTransH(unittest.TestCase):
         prob = [(1 - p) for p in prob_series.tolist()]
         result_prob = [(entity_pairs[i][0], entity_pairs[i][1], prob[i]) for i in range(0, len(prob))]
         ir_metrics = InformationRetrievalMetrics(result_prob, true_pairs)
-        ir_metrics.log_metrics(logger, params)
+        ir_metrics.log_metrics(logger, params, params)
 
         #Export results
         export_embeddings('erer', str(model), 'LogTransH', entA, ent_embeddingsA)
