@@ -151,11 +151,11 @@ def export_result_prob(dataset, graph_type, dataset_prefix, method,
 
     return True
 
-def get_optimal_threshold(result_prob, true_pairs):
+def get_optimal_threshold(result_prob, true_pairs, min_threshold=0.1, max_threshold=1.0, step=0.05):
     logger = get_logger('RL.OPTIMAL_THRESHOLD')
     max_fscore = 0.0
     optimal_threshold = 0
-    for threshold in range(20,110, 5):
+    for threshold in range(int(min_threshold*100),int(max_threshold*100), int(step*100)):
         threshold = threshold / 100.0
         try:
             result = pd.MultiIndex.from_tuples([(e1, e2) for (e1, e2, d) in result_prob if d <= threshold])
