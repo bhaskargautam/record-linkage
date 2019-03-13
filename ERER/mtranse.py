@@ -10,7 +10,7 @@ logger = get_logger('RL.ERER.MTransE')
 class MTransE(object):
     """
         Tensorflow based implementation of MTransE method
-        Use train method to update the embeddings.
+        Use 'train' method to update the embeddings.
     """
 
     def __init__(self, graph_erer, dimension=10, batchSize=100, learning_rate=0.1,
@@ -97,24 +97,26 @@ class MTransE(object):
         #Todo: maybe use: tf.abs(tf.subtract(tf.add(pos_ha, pos_ra), post_ta))
         _b_score = self._calc(pos_hb, pos_tb, pos_rb)
 
-        self.a_score = tf.reduce_mean(tf.reduce_sum(_a_score, keepdims=True, axis=1))
-        self.b_score = tf.reduce_mean(tf.reduce_sum(_b_score, keepdims=True, axis=1))
+        self.a_score = tf.reduce_sum(tf.reduce_mean(_a_score, keepdims=True, axis=1))
+        self.b_score = tf.reduce_sum(tf.reduce_mean(_b_score, keepdims=True, axis=1))
         logger.info("AScore Shape %s. Bscore Shape: %s", str(self.a_score.shape), str(self.b_score.shape))
 
-        self.optimizer_A = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(
-                                self.a_score, var_list=[self.ent_embeddings_A, self.rel_embeddings_A])
-        self.optimizer_B = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(
-                                self.b_score, var_list=[self.ent_embeddings_B, self.rel_embeddings_B])
+
+        self.optimizer = tf.train.AdamOptimizer(self.learning_rate)#GradientDescentOptimizer(self.learning_rate)
+        self.optimizer_A = self.optimizer.minimize(self.a_score,
+                                var_list=[self.ent_embeddings_A, self.rel_embeddings_A])
+        self.optimizer_B = self.optimizer.minimize(self.b_score,
+                                var_list=[self.ent_embeddings_B, self.rel_embeddings_B])
 
         #Compute loss: alignment model
         _alignment_loss = tf.abs(tf.subtract(tf.matmul(pos_entA, pos_ent_trans), pos_entB))
-        self.alignment_loss = tf.reduce_mean(tf.reduce_sum(_alignment_loss, keepdims=True, axis=1))
+        self.alignment_loss = tf.reduce_sum(tf.reduce_mean(_alignment_loss, keepdims=True, axis=1))
         logger.info("Alignment loss Shape %s.", str(self.alignment_loss.shape))
 
         #Configure optimizer
-        self.optimizer_AM = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(
-                                self.alignment_loss, var_list=[self.ent_embeddings_A,
-                                self.ent_embeddings_B, self.ent_translation])
+        self.optimizer_AM = self.optimizer.minimize(self.alignment_loss,
+                                    var_list=[self.ent_embeddings_A, self.ent_embeddings_B,
+                                    self.ent_translation])
 
         #Configure session
         self.sess = tf.Session()
@@ -181,7 +183,9 @@ class MTransE(object):
 
     def get_ent_embeddings_A(self):
         with self.sess.as_default():
-            return tf.nn.embedding_lookup(self.ent_embeddings_A, range(0, len(self.entityA))).eval()
+            ent_A = tf.nn.embedding_lookup(self.ent_embeddings_A, range(0, len(self.entityA))).eval()
+            ent_trans = tf.nn.embedding_lookup(self.ent_translation, range(0, self.dimension)).eval()
+            return tf.matmul(ent_A, ent_trans).eval()
 
     def get_ent_embeddings_B(self):
         with self.sess.as_default():
