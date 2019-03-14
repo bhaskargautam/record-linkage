@@ -1,7 +1,7 @@
 import config
 import pandas as pd
 
-from common import get_logger
+from common import get_logger, create_folder_if_missing
 
 logger = get_logger('RL.ERER.GRAPH_ERER')
 
@@ -42,6 +42,7 @@ class Graph_ERER(object):
 
         self.model = dataset()
         self.dataset_prefix = config.BASE_ERER_GRAPH_FOLDER + str(self.model) + '/'
+        create_folder_if_missing(self.dataset_prefix)
         if rebuild:
             self.rebuild_graph()
         else:

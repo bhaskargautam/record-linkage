@@ -3,13 +3,21 @@ import logging
 import numpy as np
 import random
 import recordlinkage
+import os
 import pandas as pd
 import sys
 
 from logging.handlers import RotatingFileHandler
 
+def create_folder_if_missing(file_path):
+    folder_path = os.path.dirname(file_path)
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+    return True
+
 def get_logger(name, filename=config.DEFAULT_LOG_FILE, level=logging.INFO):
     log_file_path = config.BASE_OUTPUT_FOLDER + filename
+    create_folder_if_missing(log_file_path)
     formatter = logging.Formatter('%(name)s %(asctime)s %(levelname)s %(message)s')
     logger = logging.getLogger(name)
 
@@ -32,7 +40,9 @@ def get_logger(name, filename=config.DEFAULT_LOG_FILE, level=logging.INFO):
     return logger
 
 def write_results(results_for, fscore, accuracy, precision, recall, params):
-    with open(config.BASE_OUTPUT_FOLDER + config.DEFAULT_RESULT_LOG_FILE, 'a+') as f:
+    result_log_filename = config.BASE_OUTPUT_FOLDER + config.DEFAULT_RESULT_LOG_FILE
+    create_folder_if_missing(result_log_filename)
+    with open(result_log_filename, 'a+') as f:
         f.write("%s, %f, %f, %f, %f, %s\n" % (results_for, fscore, accuracy,
             precision, recall, str(params)))
 
@@ -113,6 +123,7 @@ def get_negative_samples(triples, total_head, total_tail, total_rel,
 
 def export_embeddings(graph_type, model, method, entity, ent_emebedding):
     base_file_name = config.BASE_OUTPUT_FOLDER + str(graph_type) +  "/"
+    create_folder_if_missing(base_file_name)
     base_file_name = base_file_name + str(model) + "_" + str(method)
     with open(base_file_name + "_embedding.tsv", "w+") as f:
         for e in ent_emebedding:
@@ -131,6 +142,7 @@ def export_embeddings(graph_type, model, method, entity, ent_emebedding):
 def export_result_prob(dataset, graph_type, dataset_prefix, method,
                             entity, result_prob, true_pairs, entity2=None):
     base_file_name = config.BASE_OUTPUT_FOLDER + str(graph_type) +  "/"
+    create_folder_if_missing(base_file_name)
     base_file_name = base_file_name + str(dataset_prefix) + "_" + str(method)
     entity2 = entity2 if entity2 else entity
     result_prob = sorted(result_prob, key=lambda x: x[2])
@@ -229,7 +241,9 @@ class InformationRetrievalMetrics(object):
         return reciprocal_rank_sum / len(self.query_result_mapping)
 
     def _write_results(self, results_for, p_at_1, p_at_10, mrr, mavp, params):
-        with open(config.BASE_OUTPUT_FOLDER + config.DEFAULT_IR_RESULT_LOG_FILE, 'a+') as f:
+        ir_log_filename = config.BASE_OUTPUT_FOLDER + config.DEFAULT_IR_RESULT_LOG_FILE
+        create_folder_if_missing(ir_log_filename)
+        with open(ir_log_filename, 'a+') as f:
             f.write("%s, %f, %f, %f, %f, %s\n" % (results_for, p_at_1, p_at_10,
                 mrr, mavp, str(params)))
 
