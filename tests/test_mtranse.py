@@ -42,7 +42,7 @@ class TestMTransE(unittest.TestCase):
         #Write Embeddings to file
         export_embeddings('erer', str(model), 'MTransE', graph.entityA, ent_embeddings_a)
         export_embeddings('erer', str(model), 'MTransE', graph.entityB, ent_embeddings_b)
-        export_result_prob(dataset, 'er', str(model), 'MTransE', graph.entityA, result_prob, graph.true_pairs, graph.entityB)
+        export_result_prob(dataset, 'erer', str(model), 'MTransE', graph.entityA, result_prob, graph.true_pairs, graph.entityB)
         optimal_threshold, max_fscore = get_optimal_threshold(result_prob, graph.true_pairs)
 
         try:
@@ -54,7 +54,7 @@ class TestMTransE(unittest.TestCase):
 
         #Log MAP, MRR and Hits@K
         ir_metrics = InformationRetrievalMetrics(result_prob, graph.true_pairs)
-        ir_metrics.log_metrics(logger)
+        ir_metrics.log_metrics(logger, params)
 
         mtranse.close_tf_session()
         return max_fscore
