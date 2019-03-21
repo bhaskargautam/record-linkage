@@ -108,4 +108,5 @@ venv.bak/
 #Data Files
 *.xlsx
 *.tsv
-*.log
+*.log*
+out/*
