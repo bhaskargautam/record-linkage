@@ -121,7 +121,7 @@ class Cora(object):
         #Extarct true links (takes time...)
         true_links = []
         for indexA, indexB in self.candidate_links:
-            if df_a['dni'][indexA] == df_b['dni'][indexB]:
+            if df_a['dni'][indexA] == df_b['dni'][indexB] and df_a['dni'][indexA]:
                 true_links.append((indexA, indexB))
         logger.info("Number of true links: %d", len(true_links))
         self.true_links = pd.MultiIndex.from_tuples(true_links)
@@ -420,29 +420,48 @@ class Cora(object):
         true_pairs = pd.MultiIndex.from_tuples(true_pairs)
         return (entity, attribute, relation, attr_value, atriples, rtriples, entity_pairs, true_pairs)
 
-    def get_erer_model(self):
+    def get_erer_model(self, data_type='train', prior_pair_ratio=0.3):
+        assert data_type in ['train', 'test', 'val', 'all'], "Invalid Data Type requested. \
+            Allowed values: 'train', 'test', 'val', 'all'"
+
         entityA = []
         entityB = []
         relationA = ['same_as']
         relationB = ['same_as']
         triplesA = []
         triplesB = []
-        dni_mapping = {}
+        dni_mapping_A = {}
+        dni_mapping_B = {}
         enitity_id_mapping = {}
 
-        entity, relation, triples = None, None, None
+        entity, relation, triples, dni_mapping = None, None, None, None
+        record_ids_A = []
+        record_ids_B = []
+        if data_type in ['train', 'all']:
+            record_ids_A.extend(self.trainDataA['id'].tolist())
+            record_ids_B.extend(self.trainDataB['id'].tolist())
+        elif data_type in ['test', 'all']:
+            record_ids_A.extend(self.testDataA['id'].tolist())
+            record_ids_B.extend(self.testDataB['id'].tolist())
+        elif data_type in ['val', 'all']:
+            record_ids_A.extend(self.valDataA['id'].tolist())
+            record_ids_B.extend(self.valDataB['id'].tolist())
 
         for dni in self.data:
             for record in self.data[dni]:
                 id = str(record.get('id'))
-                if id in self.trainDataA['id'].tolist() or id in self.testDataA['id'].tolist():
+                if id in record_ids_A:
                     entity = entityA
                     relation = relationA
                     triples = triplesA
-                else:
+                    dni_mapping = dni_mapping_A
+                elif id in record_ids_B:
                     entity = entityB
                     relation = relationB
                     triples = triplesB
+                    dni_mapping = dni_mapping_B
+                else:
+                    continue
 
                 entity.append("cora" + str(record.get("id") + "_" + str(dni)))
                 entity_id = len(entity) - 1;
@@ -512,24 +531,23 @@ class Cora(object):
         logger.info("Number of TriplesB: %d", len(triplesB))
 
         #Extract candidate links and true links
-        prior_pairs = []
-        for a in self.trainDataA['id']:
-            a_id = enitity_id_mapping[str(a)]
-            for b in self.trainDataB['id']:
-                b_id = enitity_id_mapping[str(b)]
-                if dni_mapping[str(a_id)] == dni_mapping[str(b_id)]:
-                    prior_pairs.append((a_id,b_id))
-
         entity_pairs = []
         true_pairs = []
-        for a in self.testDataA['id']:
+        for a in record_ids_A:
             a_id = enitity_id_mapping[str(a)]
-            for b in self.testDataB['id']:
+            for b in record_ids_B:
                 b_id = enitity_id_mapping[str(b)]
                 entity_pairs.append((a_id,b_id))
-                if dni_mapping[str(a_id)] == dni_mapping[str(b_id)]:
+                if dni_mapping_A[str(a_id)] == dni_mapping_B[str(b_id)]:
                     true_pairs.append((a_id,b_id))
 
+        logger.info("Number of ALL true pairs: %d", len(true_pairs))
+
+        prior_pairs = []
+        for i in xrange(int(len(true_pairs)*prior_pair_ratio)):
+            prior_pairs.append(true_pairs.pop(random.choice(xrange(len(true_pairs)))))
+
+        logger.info("Number of prior pairs: %d", len(prior_pairs))
         logger.info("Number of entity pairs: %d", len(entity_pairs))
         logger.info("Number of true pairs: %d", len(true_pairs))
 

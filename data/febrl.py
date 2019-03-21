@@ -1,6 +1,7 @@
 import config
 import recordlinkage
 import pandas as pd
+import random
 
 from common import get_logger
 from recordlinkage.datasets import load_febrl4
@@ -312,7 +313,10 @@ class FEBRL(object):
         true_pairs = pd.MultiIndex.from_tuples(true_pairs)
         return (entity, attribute, relation, attr_value, atriples, rtriples, entity_pairs, true_pairs)
 
-    def get_erer_model(self):
+    def get_erer_model(self, data_type='train', prior_pair_ratio=0.3):
+        assert data_type in ['train', 'test', 'val', 'all'], "Invalid Data Type requested. \
+            Allowed values: 'train', 'test', 'val', 'all'"
+
         entityA = []
         entityB = []
         relationA = ['name', 'surname', 'state', 'dob', 'postcode', 'same_as']
@@ -323,15 +327,19 @@ class FEBRL(object):
         #Build Knowledge Graph
         dataA = {}
         dataB = {}
-        dataC = {}
-        dataD = {}
-        given_name_dict = {}
-        for (dataset, data, entity, relation, triples) in [ \
-                (self.trainDataA, dataA, entityA, relationA, triplesA),
-                (self.trainDataB, dataB, entityB, relationB, triplesB),
-                (self.testDataA, dataC, entityA, relationA, triplesA),
-                (self.testDataB, dataD, entityB, relationB, triplesB)]:
+        data_for_graph = []
+        if data_type in ['train', 'all']:
+            data_for_graph.extend([(self.trainDataA, dataA, entityA, relationA, triplesA),
+                                   (self.trainDataB, dataB, entityB, relationB, triplesB)])
+        if data_type in ['test', 'all']:
+            data_for_graph.extend([(self.testDataA, dataA, entityA, relationA, triplesA),
+                                   (self.testDataB, dataB, entityB, relationB, triplesB)])
+        if data_type in ['val', 'all']:
+            data_for_graph.extend([(self.valDataA, dataA, entityA, relationA, triplesA),
+                                   (self.valDataB, dataB, entityB, relationB, triplesB)])
 
+        given_name_dict = {}
+        for (dataset, data, entity, relation, triples) in data_for_graph:
             for record in dataset.iterrows():
                 #new entity for each record
                 entity.append(record[0])
@@ -375,24 +383,27 @@ class FEBRL(object):
                 triples.append((entity_id, dob_id, 3))
                 triples.append((entity_id, postcode_id, 4))
 
-            logger.info("Number of entities: %d", len(entity))
-            logger.info("All relations: %s", str(relation))
-            logger.info("Number of Triples: %d", len(triples))
-
-        prior_pairs = []
-        for a in dataA:
-            for b in dataB:
-                if a.split('-')[1] == b.split('-')[1]:
-                    prior_pairs.append((dataA[a], dataB[b]))
+        logger.info("Number of entities A: %d", len(entityA))
+        logger.info("No. of relationsA: %s", len(relationA))
+        logger.info("Number of TriplesA: %d", len(triplesA))
+        logger.info("Number of entities B: %d", len(entityB))
+        logger.info("No. of relationsB: %s", len(relationB))
+        logger.info("Number of TriplesB: %d", len(triplesB))
 
         entity_pairs = []
         true_pairs = []
-        for a in dataC:
-            for b in dataD:
+        for a in dataA:
+            for b in dataB:
                 if given_name_dict[a] == given_name_dict[b]:
-                    entity_pairs.append((dataC[a], dataD[b]))
-                if a.split('-')[1] == b.split('-')[1]:
-                    true_pairs.append((dataC[a], dataD[b]))
+                    entity_pairs.append((dataA[a], dataB[b]))
+                    if a.split('-')[1] == b.split('-')[1]:
+                        true_pairs.append((dataA[a], dataB[b]))
+
+        logger.info("Number of ALL true pairs: %d", len(true_pairs))
+
+        prior_pairs = []
+        for i in xrange(int(len(true_pairs)*prior_pair_ratio)):
+            prior_pairs.append(true_pairs.pop(random.choice(xrange(len(true_pairs)))))
 
         logger.info("Number of prior pairs: %d", len(prior_pairs))
         logger.info("Number of entity pairs: %d", len(entity_pairs))

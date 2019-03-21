@@ -1,6 +1,7 @@
 import config
 import numpy as np
 import pandas as pd
+import random
 import recordlinkage
 import re
 
@@ -404,7 +405,10 @@ class Census(object):
         true_pairs = pd.MultiIndex.from_tuples(true_pairs)
         return (entity, attribute, relation, attr_value, atriples, rtriples, entity_pairs, true_pairs)
 
-    def get_erer_model(self):
+    def get_erer_model(self, data_type='train', prior_pair_ratio=0.3):
+        assert data_type in ['train', 'test', 'val', 'all'], "Invalid Data Type requested. \
+            Allowed values: 'train', 'test', 'val', 'all'"
+
         entityA = []
         entityB = []
         relationA = ["same_as", "name", "surname", "surname2", "yob", "civil", "occupation"]
@@ -413,17 +417,21 @@ class Census(object):
         triplesB = []
         dni_mapping = {}
         surname_mapping = {}
-        data_1940 = []
-        data_1936 = []
-        data_1930 = []
-        data_1924 = []
+        data_A = []
+        data_B = []
 
-        for (dataset, data, entity, relation, triples) in [ \
-                    (self.trainDataA, data_1940, entityA, relationA, triplesA),
-                    (self.trainDataB, data_1936, entityB, relationB, triplesB),
-                    (self.testDataA, data_1930, entityA, relationA, triplesA),
-                    (self.testDataB, data_1924, entityB, relationB, triplesB)]:
+        data_for_graph = []
+        if data_type in ['train', 'all']:
+            data_for_graph.extend([(self.trainDataA, data_A, entityA, relationA, triplesA),
+                                    (self.trainDataB, data_B, entityB, relationB, triplesB)])
+        if data_type in ['test', 'all']:
+            data_for_graph.extend([(self.testDataA, data_A, entityA, relationA, triplesA),
+                                   (self.testDataB, data_B, entityB, relationB, triplesB)])
+        if data_type in ['val', 'all']:
+            data_for_graph.extend([(self.valDataA, data_A, entityA, relationA, triplesA),
+                                   (self.valDataB, data_B, entityB, relationB, triplesB)])
 
+        for (dataset, data, entity, relation, triples) in data_for_graph:
             for record in dataset.iterrows():
                 record = record[1]
 
@@ -520,25 +528,29 @@ class Census(object):
                 triples.append((individual_id, civil_id, relation.index("civil")))
                 triples.append((individual_id, occupation_id, relation.index("occupation")))
 
-            logger.info("Number of entities: %d", len(entity))
-            logger.info("Number of relations: %d", len(relation))
-            logger.info("Number of Triples: %d", len(triples))
+        logger.info("Number of entitiesA: %d", len(entityA))
+        logger.info("Number of relationsA: %d", len(relationA))
+        logger.info("Number of TriplesA: %d", len(triplesA))
+        logger.info("Number of entitiesB: %d", len(entityB))
+        logger.info("Number of relationsB: %d", len(relationB))
+        logger.info("Number of TriplesB: %d", len(triplesB))
 
         #Extract candidate pairs and true pairs
         entity_pairs = []
         true_pairs = []
-        for e1 in data_1930:
-            for e2 in data_1924:
+        for e1 in data_A:
+            for e2 in data_B:
                 if surname_mapping[e1] == surname_mapping[e2]:
                     entity_pairs.append((e1, e2))
                     if dni_mapping[e1] == dni_mapping[e2] and dni_mapping[e2]:
                         true_pairs.append((e1,e2))
 
+        logger.info("Number of ALL true pairs: %d", len(true_pairs))
+
         prior_pairs = []
-        for e1 in data_1940:
-            for e2 in data_1936:
-                if dni_mapping[e1] == dni_mapping[e2] and dni_mapping[e1]:
-                    prior_pairs.append((e1,e2))
+        for i in xrange(int(len(true_pairs)*prior_pair_ratio)):
+            prior_pairs.append(true_pairs.pop(random.choice(xrange(len(true_pairs)))))
+
 
         logger.info("Number of prior pairs: %d", len(prior_pairs))
         logger.info("Number of entity pairs: %d", len(entity_pairs))
