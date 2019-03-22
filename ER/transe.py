@@ -2,7 +2,7 @@ import config
 import tensorflow as tf
 import numpy as np
 
-from common import sigmoid, get_logger, get_negative_samples
+from common import get_logger, get_negative_samples, get_tf_summary_file_path
 from scipy import spatial
 import timeit
 
@@ -36,7 +36,7 @@ class TransE(object):
         logger.info("Shape of neg triples: %s", str(self.ntriples.shape))
 
         #Define Embedding Variables
-        initializer = tf.contrib.layers.xavier_initializer(uniform = False)
+        initializer = tf.contrib.layers.xavier_initializer(uniform = True)
         regularizer = tf.contrib.layers.l2_regularizer(scale = regularizer_scale)
         self.ent_embeddings = tf.get_variable(name = "ent_embeddings", shape = [len(self.entity), dimension],
                                     initializer = initializer, regularizer = regularizer)
@@ -59,12 +59,12 @@ class TransE(object):
         pos_nr = tf.nn.embedding_lookup(self.rel_embeddings, self.neg_rel)
 
         #Normalize embeddings
-        pos_h = tf.nn.l2_normalize(pos_h, 1)
-        pos_t = tf.nn.l2_normalize(pos_t, 1)
-        pos_r = tf.nn.l2_normalize(pos_r, 1)
-        pos_nh = tf.nn.l2_normalize(pos_nh, 1)
-        pos_nt = tf.nn.l2_normalize(pos_nt, 1)
-        pos_nr = tf.nn.l2_normalize(pos_nr, 1)
+        pos_h = tf.nn.l2_normalize(pos_h, [1,2])
+        pos_t = tf.nn.l2_normalize(pos_t, [1,2])
+        pos_r = tf.nn.l2_normalize(pos_r, [1,2])
+        pos_nh = tf.nn.l2_normalize(pos_nh, [1,2])
+        pos_nt = tf.nn.l2_normalize(pos_nt, [1,2])
+        pos_nr = tf.nn.l2_normalize(pos_nr, [1,2])
 
         logger.info("Pos Triple Shapes: %s, %s, %s", str(pos_h.shape), str(pos_t.shape), str(pos_r.shape))
         logger.info("Neg Triple Shapes: %s, %s, %s", str(pos_nh.shape), str(pos_nt.shape), str(pos_nr.shape))
@@ -73,12 +73,12 @@ class TransE(object):
         _p_score = self._calc(pos_h, pos_t, pos_r)
         _n_score = self._calc(pos_nh, pos_nt, pos_nr)
 
-        p_score =  tf.reduce_mean(tf.reduce_mean(_p_score, 1, keepdims = False), 1, keepdims = True)
-        n_score =  tf.reduce_mean(tf.reduce_mean(_n_score, 1, keepdims = False), 1, keepdims = True)
+        p_score =  tf.reduce_sum(tf.reduce_mean(_p_score, 1, keepdims = False), 1, keepdims = True)
+        n_score =  tf.reduce_sum(tf.reduce_mean(_n_score, 1, keepdims = False), 1, keepdims = True)
 
         logger.info("PScore Shape %s. N_score Shape: %s", str(p_score.shape), str(n_score.shape))
 
-        self.loss = tf.reduce_mean(tf.maximum(p_score - n_score + self.margin, 0))
+        self.loss = tf.reduce_sum(tf.maximum(p_score - n_score + self.margin, 0))
 
         #collect summary parameters
         tf.summary.scalar('loss', self.loss)
@@ -93,8 +93,7 @@ class TransE(object):
 
         #Confirgure summary location
         self.merged = tf.summary.merge_all()
-        self.summary_writer = tf.summary.FileWriter(config.BASE_OUTPUT_FOLDER  + 'tf_summary_' + \
-                                                    logger.name, self.sess.graph)
+        self.summary_writer = tf.summary.FileWriter(get_tf_summary_file_path(logger), self.sess.graph)
 
 
     def _calc(self, h, t, r):
@@ -127,10 +126,16 @@ class TransE(object):
                         self.neg_tail : self.ntriples[i:neg_batchend][:, 1].reshape(self.batchSize, (self.neg_rate + self.neg_rel_rate)),
                         self.neg_rel : self.ntriples[i:neg_batchend][:, 2].reshape(self.batchSize, (self.neg_rate + self.neg_rel_rate))
                         }
-                    _, cur_loss, summary = self.sess.run([self.optimizer, self.loss, self.merged], feed_dict=feed_dict)
+
+                    if batchend == len(self.triples):
+                        #last batch write summary for tensorboard
+                        _, cur_loss, summary = self.sess.run([self.optimizer, self.loss, self.merged], feed_dict=feed_dict)
+                        self.summary_writer.add_summary(summary, epoch)
+                    else:
+                        #train network on batch
+                        _, cur_loss = self.sess.run([self.optimizer, self.loss], feed_dict=feed_dict)
 
                     loss = loss + cur_loss
-                    self.summary_writer.add_summary(summary, epoch)
                 if loss:
                     logger.info("Epoch: %d Loss: %f", epoch, loss)
                 else:

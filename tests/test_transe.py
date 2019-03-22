@@ -69,8 +69,8 @@ class TestTransE(unittest.TestCase):
         return max_fscore
 
     def get_default_params(self):
-        return {'learning_rate': 0.1, 'margin': 1, 'dimension': 80, 'epochs': 500,
-                'regularizer_scale' : 0.1, 'batchSize' : 100, 'neg_rate' : 8, 'neg_rel_rate': 2}
+        return {'learning_rate': 0.1, 'margin': 2, 'dimension': 128, 'epochs': 1000,
+                'regularizer_scale' : 0.1, 'batchSize' : 1024, 'neg_rate' : 8, 'neg_rel_rate': 2}
 
     def test_transe_cora(self):
         self._test_transe(Cora, self.get_default_params())

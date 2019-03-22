@@ -1,4 +1,5 @@
 import config
+import datetime
 import logging
 import numpy as np
 import random
@@ -262,3 +263,7 @@ class InformationRetrievalMetrics(object):
 
         self._write_results(logger.name, p_at_1, p_at_10, mrr, mavp, params)
         return True
+
+def get_tf_summary_file_path(logger):
+    return config.TENSORFLOW_SUMMARY_FOLDER + logger.name + \
+            str(datetime.datetime.now().strftime("%d_%m_%H_%M"))
