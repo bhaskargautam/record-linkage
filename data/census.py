@@ -6,6 +6,11 @@ import recordlinkage
 import re
 
 from common import get_logger
+from data.base_census import (
+    load_census,
+    CensusLocation,
+    census_field_map,
+    CensusFields)
 
 logger = get_logger('RL.Data.Census')
 
@@ -35,88 +40,113 @@ class Census(object):
         if not cls._instance:
             cls._instance = super(Census, cls).__new__(
                                 cls, *args, **kwargs)
-            cls._instance.init()
+            cls._instance.init(*args, **kwargs)
         return cls._instance
 
-    def init(self, base_file = config.CENSUS_SANT_FELIU,
+    def init(self, census_location=CensusLocation.SANT_FELIU,
                     train_years = [[1940], [1936]],
                     test_years = [[1930],[1924]],
                     validation_years = [[1920], [1915]]):
-        logger.info("Reading Census Records...")
-        WS = pd.read_excel(base_file, keep_default_na=False)
-        data = np.array(WS)
+        self.census_location = census_location
+        self.field_map = census_field_map[self.census_location]
+
+        #collect all years
+        years = list(np.array(train_years).flatten())
+        years.extend(list(np.array(test_years).flatten()))
+        years.extend(list(np.array(validation_years).flatten()))
+        logger.info("Reading Census Records for years: %s .....", str(years))
+
+        data = load_census(census_location, years=years, filters=None, fields=None)
+        year_field = census_field_map[census_location][CensusFields.CENSUS_YEAR]
         logger.info("Shape of Census data: %s", str(data.shape))
-        logger.info("Sample Record: %s", str(data[0]))
+        logger.info("Sample Record: %s", str(data.loc[0]))
 
-        logger.info("Available Census Years %s", str(np.unique(data[:,4])))
-        data_1940 = np.array(filter(lambda x: x[4] in train_years[0], data))
-        data_1936 = np.array(filter(lambda x: x[4] in train_years[1], data))
-        data_1930 = np.array(filter(lambda x: x[4] in test_years[0], data))
-        data_1924 = np.array(filter(lambda x: x[4] in test_years[1], data))
-        data_1920 = np.array(filter(lambda x: x[4] in validation_years[0], data))
-        data_1915 = np.array(filter(lambda x: x[4] in validation_years[1], data))
-        logger.info("Train Population: 1940 %s 1936 %s ", str(data_1940.shape), str(data_1936.shape))
-        logger.info("Test Population: 1930 %s 1924 %s ", str(data_1930.shape), str(data_1924.shape))
-        logger.info("Validation Population: 1920 %s 1915 %s ", str(data_1920.shape), str(data_1915.shape))
-
-        self.trainDataA = pd.DataFrame(data_1940)
-        self.trainDataB = pd.DataFrame(data_1936)
-        self.testDataA = pd.DataFrame(data_1930)
-        self.testDataB = pd.DataFrame(data_1924)
-        self.valDataA = pd.DataFrame(data_1920)
-        self.valDataB = pd.DataFrame(data_1915)
+        logger.info("Available Census Years %s", str(data[year_field].unique()))
+        self.trainDataA = data[data[year_field].isin(train_years[0])]
+        self.trainDataB = data[data[year_field].isin(train_years[1])]
+        self.testDataA = data[data[year_field].isin(test_years[0])]
+        self.testDataB = data[data[year_field].isin(test_years[1])]
+        self.valDataA = data[data[year_field].isin(validation_years[0])]
+        self.valDataB = data[data[year_field].isin(validation_years[1])]
+        logger.info("Train Population: 1940 %s 1936 %s ", str(self.trainDataA.shape), str(self.trainDataB.shape))
+        logger.info("Test Population: 1930 %s 1924 %s ", str(self.testDataA.shape), str(self.testDataB.shape))
+        logger.info("Validation Population: 1920 %s 1915 %s ", str(self.valDataA.shape), str(self.valDataB.shape))
 
         #Extract training candidate pairs
         indexer = recordlinkage.Index()
-        indexer.block(12)
+        surname_field = census_field_map[census_location][CensusFields.SURNAME_2]
+        indexer.block(surname_field)
         self.candidate_links = indexer.index(self.trainDataA, self.trainDataB)
         logger.info("No. of Candidate Pairs %d", (len(self.candidate_links)))
 
         #Extarct Training true links (takes time...)
         true_links = []
+        dni_field = census_field_map[census_location][CensusFields.DNI]
         for indexA, indexB in self.candidate_links:
-            if data_1940[indexA][3] == data_1936[indexB][3] and data_1936[indexB][3]:
+            if self.trainDataA.loc[indexA][dni_field] == self.trainDataB.loc[indexB][dni_field] and\
+                     self.trainDataB.loc[indexB][dni_field]:
                 true_links.append((indexA, indexB))
         logger.info("Number of true links: %d", len(true_links))
         self.true_links = pd.MultiIndex.from_tuples(true_links)
 
         #Extract test candidate pairs
         indexer = recordlinkage.Index()
-        indexer.block(12)
+        indexer.block(surname_field)
         self.test_links = indexer.index(self.testDataA, self.testDataB)
         logger.info("No. of Test Pairs %d", (len(self.test_links)))
 
         #Extarct test true links (takes time...)
         true_test_links = []
         for indexA, indexB in self.test_links:
-            if data_1930[indexA][3] == data_1924[indexB][3] and data_1924[indexB][3]:
+            if self.testDataA.loc[indexA][dni_field] == self.testDataB.loc[indexB][dni_field] and\
+                     self.testDataB.loc[indexB][dni_field]:
                 true_test_links.append((indexA, indexB))
         logger.info("Number of true test links: %d", len(true_test_links))
         self.true_test_links = pd.MultiIndex.from_tuples(true_test_links)
 
         #Extract val candidate pairs
         indexer = recordlinkage.Index()
-        indexer.block(12)
+        indexer.block(surname_field)
         self.val_links = indexer.index(self.valDataA, self.valDataB)
         logger.info("No. of Validation Pairs %d", (len(self.val_links)))
 
         #Extarct val true links (takes time...)
         true_val_links = []
         for indexA, indexB in self.val_links:
-            if data_1920[indexA][3] == data_1915[indexB][3] and data_1915[indexB][3]:
+            if self.valDataA.loc[indexA][dni_field] == self.valDataB.loc[indexB][dni_field] and\
+                     self.valDataB.loc[indexB][dni_field]:
                 true_val_links.append((indexA, indexB))
         logger.info("Number of true Validation links: %d", len(true_val_links))
         self.true_val_links = pd.MultiIndex.from_tuples(true_val_links)
 
     def get_comparision_object(self):
+        """
+            Builds the Comparison Object for six fields.
+            JaroWinkler Distance for Name, Surname & relation.
+            Exact Match for YOB, Civil status and occupation.
+            :return : compare_cl
+            :rtype : recordlinkage.Compare
+        """
         compare_cl = recordlinkage.Compare()
 
-        compare_cl.string(10, 10, method='jarowinkler', threshold=0.85, label='normalizedName')
-        compare_cl.string(11, 11, method='jarowinkler', threshold=0.85, label='normalizedSurname1')
-        compare_cl.exact(17, 17, label='yearOfBirth')
-        compare_cl.exact(19, 19, label='civilStatus')
-        compare_cl.string(21, 21, method='jarowinkler', threshold=0.85, label='normalizedRelation')
-        compare_cl.exact(29, 29, label='normalizedOccupation')
+        fname = census_field_map[self.census_location][CensusFields.FIRST_NAME]
+        compare_cl.string(fname, fname, method='jarowinkler', threshold=0.85, label='normalizedName')
+
+        sname1 = census_field_map[self.census_location][CensusFields.SURNAME_1]
+        compare_cl.string(sname1, sname1, method='jarowinkler', threshold=0.85, label='normalizedSurname1')
+
+        yob = census_field_map[self.census_location][CensusFields.YOB]
+        compare_cl.exact(yob, yob, label='yearOfBirth')
+
+        civil = census_field_map[self.census_location][CensusFields.CIVIL_STATUS]
+        compare_cl.exact(civil, civil, label='civilStatus')
+
+        relation = census_field_map[self.census_location][CensusFields.RELATION]
+        compare_cl.string(relation, relation, method='jarowinkler', threshold=0.85, label='normalizedRelation')
+
+        occupation = census_field_map[self.census_location][CensusFields.OCCUPATION]
+        compare_cl.exact(occupation, occupation, label='normalizedOccupation')
+
         return compare_cl
 
     def get_er_model(self, data_type='train'):
@@ -140,61 +170,71 @@ class Census(object):
             data_for_graph.extend([(self.valDataA, data_1940), (self.valDataB, data_1936)])
 
         for (dataset, data) in data_for_graph:
-            for record in dataset.iterrows():
-                record = record[1]
+            for _, record in dataset.iterrows():
 
                 #new entity for each record
-                entity.append(str(record[1]) + "_" + str(record[3]))
+                field_individual_id = self.field_map[CensusFields.ID_INDIVIDUAL]
+                field_dni = self.field_map[CensusFields.DNI]
+                entity.append(str(record[field_individual_id]) + "_" + \
+                                    str(record[field_dni]))
                 individual_id = len(entity) - 1
 
                 #entity for each household
-                if record[2] in entity:
-                    household_id = entity.index(record[2])
+                field_household_id = self.field_map[CensusFields.ID_HOUSEHOLD]
+                if record[field_household_id] in entity:
+                    household_id = entity.index(record[field_household_id])
                 else:
-                    entity.append(record[2])
+                    entity.append(record[field_household_id])
                     household_id = len(entity) - 1
 
                 #populate dicticnaries for DNI and Surname
-                dni_mapping[individual_id] = record[3]
-                surname_mapping[individual_id] = record[12]
+                dni_mapping[individual_id] = record[field_dni]
+                surname_mapping[individual_id] = record[self.field_map[CensusFields.SURNAME_2]]
                 data.append(individual_id)
 
                 #Entity for Normalized Name
-                if record[10] in entity:
-                    name_id = entity.index(record[10])
+                field_fname = self.field_map[CensusFields.FIRST_NAME]
+                if record[field_fname] in entity:
+                    name_id = entity.index(record[field_fname])
                 else:
-                    entity.append(record[10])
+                    entity.append(record[field_fname])
                     name_id = len(entity) - 1
 
                 #Entity for Normalized Surname
-                if record[11] in entity:
-                    surname_id = entity.index(record[11])
+                field_sname = self.field_map[CensusFields.SURNAME_1]
+                if record[field_sname] in entity:
+                    surname_id = entity.index(record[field_sname])
                 else:
-                    entity.append(record[11])
+                    entity.append(record[field_sname])
                     surname_id = len(entity) - 1
 
                 #Entity for Normalized Surname2
-                if record[12] in entity:
-                    surname2_id = entity.index(record[12])
+                field_sname2 = self.field_map[CensusFields.SURNAME_2]
+                if record[field_sname2] in entity:
+                    surname2_id = entity.index(record[field_sname2])
                 else:
-                    entity.append(record[12])
+                    entity.append(record[field_sname2])
                     surname2_id = len(entity) - 1
 
                 #Year of Birth
-                if record[17] and record[17] in entity:
-                    yob_id = entity.index(record[17])
-                elif record[17]:
-                    entity.append(record[17])
+                field_yob = self.field_map[CensusFields.YOB]
+                if record[field_yob] and record[field_yob] in entity:
+                    yob_id = entity.index(record[field_yob])
+                elif record[field_yob]:
+                    entity.append(record[field_yob])
                     yob_id = len(entity) - 1
                 else:
                     #check DOB for year of birth
-                    year = re.search('1[7-9][0-9]{2}', str(record[16]))
+                    field_dob = self.field_map[CensusFields.DOB]
+                    field_age = self.field_map[CensusFields.AGE]
+                    year = re.search('1[7-9][0-9]{2}', str(record[field_dob]))
                     if year:
                         year = year.group()
-                    elif record[18]:
+                    elif record[field_age]:
                         #compute year of birth from age
                         try:
-                            year = str(int(record[4]) - int(record[18]))
+                            field_census_year = self.field_map[CensusFields.CENSUS_YEAR]
+                            year = str(int(record[field_census_year]) - int(record[field_age]))
                         except ValueError:
                             year = "0000"
                     else:
@@ -207,24 +247,27 @@ class Census(object):
                         yob_id = len(entity) - 1
 
                 #Civil Status
-                if record[19] in entity:
-                    civil_id = entity.index(record[19])
+                field_civil_status = self.field_map[CensusFields.CIVIL_STATUS]
+                if record[field_civil_status] in entity:
+                    civil_id = entity.index(record[field_civil_status])
                 else:
-                    entity.append(record[19])
+                    entity.append(record[field_civil_status])
                     civil_id = len(entity) - 1
 
                 #Normalized relationship with head
-                if record[21] in relation:
-                    relation_id = relation.index(record[21])
+                field_relation = self.field_map[CensusFields.RELATION]
+                if record[field_relation] in relation:
+                    relation_id = relation.index(record[field_relation])
                 else:
-                    relation.append(record[21])
+                    relation.append(record[field_relation])
                     relation_id = len(relation) - 1
 
                 #Normalized occupation
-                if record[29] in entity:
-                    occupation_id = entity.index(record[29])
+                field_occupation = self.field_map[CensusFields.OCCUPATION]
+                if record[field_occupation] in entity:
+                    occupation_id = entity.index(record[field_occupation])
                 else:
-                    entity.append(record[29])
+                    entity.append(record[field_occupation])
                     occupation_id = len(entity) - 1
 
                 #add triples
