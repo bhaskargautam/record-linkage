@@ -326,61 +326,71 @@ class Census(object):
 
 
         for (dataset, data) in data_for_graph:
-            for record in dataset.iterrows():
-                record = record[1]
+            for _, record in dataset.iterrows():
 
                 #new entity for each record
-                entity.append(str(record[1]) + "_" + str(record[3]))
+                field_individual_id = self.field_map[CensusFields.ID_INDIVIDUAL]
+                field_dni = self.field_map[CensusFields.DNI]
+                entity.append(str(record[field_individual_id]) + "_" + \
+                                str(record[field_dni]))
                 individual_id = len(entity) - 1
 
                 #entity for each household
-                if record[2] in entity:
-                    household_id = entity.index(record[2])
+                field_household_id = self.field_map[CensusFields.ID_HOUSEHOLD]
+                if record[field_household_id] in entity:
+                    household_id = entity.index(record[field_household_id])
                 else:
-                    entity.append(record[2])
+                    entity.append(record[field_household_id])
                     household_id = len(entity) - 1
 
                 #populate dicticnaries for DNI and Surname
-                dni_mapping[individual_id] = record[3]
-                surname_mapping[individual_id] = record[12]
+                dni_mapping[individual_id] = record[field_dni]
+                surname_mapping[individual_id] = record[self.field_map[CensusFields.SURNAME_2]]
                 data.append(individual_id)
 
                 #Value for Normalized Name
-                if record[10] in attr_value:
-                    name_id = attr_value.index(record[10])
+                field_fname = self.field_map[CensusFields.FIRST_NAME]
+                if record[field_fname] in attr_value:
+                    name_id = attr_value.index(record[field_fname])
                 else:
-                    attr_value.append(record[10])
+                    attr_value.append(record[field_fname])
                     name_id = len(attr_value) - 1
 
                 #Value for Normalized Surname
-                if record[11] in attr_value:
-                    surname_id = attr_value.index(record[11])
+                field_sname = self.field_map[CensusFields.SURNAME_1]
+                if record[field_sname] in attr_value:
+                    surname_id = attr_value.index(record[field_sname])
                 else:
-                    attr_value.append(record[11])
+                    attr_value.append(record[field_sname])
                     surname_id = len(attr_value) - 1
 
                 #Value for Normalized Surname2
-                if record[12] in attr_value:
-                    surname2_id = attr_value.index(record[12])
+                field_sname2 = self.field_map[CensusFields.SURNAME_2]
+                if record[field_sname2] in attr_value:
+                    surname2_id = attr_value.index(record[field_sname2])
                 else:
-                    attr_value.append(record[12])
+                    attr_value.append(record[field_sname2])
                     surname2_id = len(attr_value) - 1
 
                 #Year of Birth
-                if record[17] and record[17] in attr_value:
-                    yob_id = attr_value.index(record[17])
-                elif record[17]:
-                    attr_value.append(record[17])
+                field_yob = self.field_map[CensusFields.YOB]
+                if record[field_yob] and record[field_yob] in attr_value:
+                    yob_id = attr_value.index(record[field_yob])
+                elif record[field_yob]:
+                    attr_value.append(record[field_yob])
                     yob_id = len(attr_value) - 1
                 else:
                     #check DOB for year of birth
-                    year = re.search('1[7-9][0-9]{2}', str(record[16]))
+                    field_dob = self.field_map[CensusFields.DOB]
+                    field_age = self.field_map[CensusFields.AGE]
+                    year = re.search('1[7-9][0-9]{2}', str(record[field_dob]))
                     if year:
                         year = year.group()
-                    elif record[18]:
+                    elif record[field_age]:
                         #compute year of birth from age
                         try:
-                            year = str(int(record[4]) - int(record[18]))
+                            field_census_year = self.field_map[CensusFields.CENSUS_YEAR]
+                            year = str(int(record[field_census_year]) - int(record[field_age]))
                         except ValueError:
                             year = "0000"
                     else:
@@ -393,14 +403,16 @@ class Census(object):
                         yob_id = len(attr_value) - 1
 
                 #Civil Status
-                if record[19] in attr_value:
-                    civil_id = attr_value.index(record[19])
+                field_civil_status = self.field_map[CensusFields.CIVIL_STATUS]
+                if record[field_civil_status] in attr_value:
+                    civil_id = attr_value.index(record[field_civil_status])
                 else:
-                    attr_value.append(record[19])
+                    attr_value.append(record[field_civil_status])
                     civil_id = len(attr_value) - 1
 
                 #Normalized relationship with head
-                rel = str(record[21]).replace(' ', '_')
+                field_relation = self.field_map[CensusFields.RELATION]
+                rel = str(record[field_relation]).replace(' ', '_')
                 if rel in relation:
                     relation_id = relation.index(rel)
                 else:
@@ -408,10 +420,11 @@ class Census(object):
                     relation_id = len(relation) - 1
 
                 #Normalized occupation
-                if record[29] in attr_value:
-                    occupation_id = attr_value.index(record[29])
+                field_occupation = self.field_map[CensusFields.OCCUPATION]
+                if record[field_occupation] in attr_value:
+                    occupation_id = attr_value.index(record[field_occupation])
                 else:
-                    attr_value.append(record[29])
+                    attr_value.append(record[field_occupation])
                     occupation_id = len(attr_value) - 1
 
                 #add triples
@@ -479,57 +492,68 @@ class Census(object):
                 record = record[1]
 
                 #new entity for each record
-                entity.append(str(record[1]) + "_" + str(record[3]))
+                field_individual_id = self.field_map[CensusFields.ID_INDIVIDUAL]
+                field_dni = self.field_map[CensusFields.DNI]
+                entity.append(str(record[field_individual_id]) + "_" + \
+                                str(record[field_dni]))
                 individual_id = len(entity) - 1
 
                 #entity for each household
-                if record[2] in entity:
-                    household_id = entity.index(record[2])
+                field_household_id = self.field_map[CensusFields.ID_HOUSEHOLD]
+                if record[field_household_id] in entity:
+                    household_id = entity.index(record[field_household_id])
                 else:
-                    entity.append(record[2])
+                    entity.append(record[field_household_id])
                     household_id = len(entity) - 1
 
                 #populate dicticnaries for DNI and Surname
-                dni_mapping[individual_id] = record[3]
-                surname_mapping[individual_id] = record[12]
+                dni_mapping[individual_id] = record[field_dni]
+                surname_mapping[individual_id] = record[self.field_map[CensusFields.SURNAME_2]]
                 data.append(individual_id)
 
                 #Entity for Normalized Name
-                if record[10] in entity:
-                    name_id = entity.index(record[10])
+                field_fname = self.field_map[CensusFields.FIRST_NAME]
+                if record[field_fname] in entity:
+                    name_id = entity.index(record[field_fname])
                 else:
-                    entity.append(record[10])
+                    entity.append(record[field_fname])
                     name_id = len(entity) - 1
 
                 #Entity for Normalized Surname
-                if record[11] in entity:
-                    surname_id = entity.index(record[11])
+                field_sname = self.field_map[CensusFields.SURNAME_1]
+                if record[field_sname] in entity:
+                    surname_id = entity.index(record[field_sname])
                 else:
-                    entity.append(record[11])
+                    entity.append(record[field_sname])
                     surname_id = len(entity) - 1
 
                 #Entity for Normalized Surname2
-                if record[12] in entity:
-                    surname2_id = entity.index(record[12])
+                field_sname2 = self.field_map[CensusFields.SURNAME_2]
+                if record[field_sname2] in entity:
+                    surname2_id = entity.index(record[field_sname2])
                 else:
-                    entity.append(record[12])
+                    entity.append(record[field_sname2])
                     surname2_id = len(entity) - 1
 
                 #Year of Birth
-                if record[17] and record[17] in entity:
-                    yob_id = entity.index(record[17])
-                elif record[17]:
-                    entity.append(record[17])
+                field_yob = self.field_map[CensusFields.YOB]
+                if record[field_yob] and record[field_yob] in entity:
+                    yob_id = entity.index(record[field_yob])
+                elif record[field_yob]:
+                    entity.append(record[field_yob])
                     yob_id = len(entity) - 1
                 else:
                     #check DOB for year of birth
-                    year = re.search('1[7-9][0-9]{2}', str(record[16]))
+                    field_dob = self.field_map[CensusFields.DOB]
+                    field_age = self.field_map[CensusFields.AGE]
+                    year = re.search('1[7-9][0-9]{2}', str(record[field_dob]))
                     if year:
                         year = year.group()
-                    elif record[18]:
+                    elif record[field_age]:
                         #compute year of birth from age
                         try:
-                            year = str(int(record[4]) - int(record[18]))
+                            field_census_year = self.field_map[CensusFields.CENSUS_YEAR]
+                            year = str(int(record[field_census_year]) - int(record[field_age]))
                         except ValueError:
                             year = "0000"
                     else:
@@ -542,24 +566,27 @@ class Census(object):
                         yob_id = len(entity) - 1
 
                 #Civil Status
-                if record[19] in entity:
-                    civil_id = entity.index(record[19])
+                field_civil_status = self.field_map[CensusFields.CIVIL_STATUS]
+                if record[field_civil_status] in entity:
+                    civil_id = entity.index(record[field_civil_status])
                 else:
-                    entity.append(record[19])
+                    entity.append(record[field_civil_status])
                     civil_id = len(entity) - 1
 
                 #Normalized relationship with head
-                if record[21] in relation:
-                    relation_id = relation.index(record[21])
+                field_relation = self.field_map[CensusFields.RELATION]
+                if record[field_relation] in relation:
+                    relation_id = relation.index(record[field_relation])
                 else:
-                    relation.append(record[21])
+                    relation.append(record[field_relation])
                     relation_id = len(relation) - 1
 
                 #Normalized occupation
-                if record[29] in entity:
-                    occupation_id = entity.index(record[29])
+                field_occupation = self.field_map[CensusFields.OCCUPATION]
+                if record[field_occupation] in entity:
+                    occupation_id = entity.index(record[field_occupation])
                 else:
-                    entity.append(record[29])
+                    entity.append(record[field_occupation])
                     occupation_id = len(entity) - 1
 
                 #add triples
@@ -610,10 +637,13 @@ class Census(object):
             logger.error("Failed to get entity id for %s", str(entity_name))
             return None
 
+        field_individual_id = self.field_map[CensusFields.ID_INDIVIDUAL]
+        assert field_individual_id is not None, "Individual ID Field is None."
+
         for dataset in [self.trainDataA, self.trainDataB, self.testDataA, self.testDataB]:
-            e = [r for r in dataset.iterrows() if str(r[1][1]) == ent_id]
+            e = dataset[dataset[field_individual_id] == int(ent_id)]
             if len(e):
-                return e[0]
+                return e.iloc[0]
         return None
 
 
