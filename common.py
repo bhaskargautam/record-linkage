@@ -262,7 +262,7 @@ class InformationRetrievalMetrics(object):
         logger.info("Mean Average Precision (MAP)= %f", mavp)
 
         self._write_results(logger.name, p_at_1, p_at_10, mrr, mavp, params)
-        return True
+        return p_at_1
 
 def get_tf_summary_file_path(logger):
     return config.TENSORFLOW_SUMMARY_FOLDER + logger.name + \
