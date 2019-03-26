@@ -1,7 +1,8 @@
+import config
 import tensorflow as tf
 import numpy as np
 
-from common import sigmoid, get_logger, get_negative_samples
+from common import get_logger, get_negative_samples, get_tf_summary_file_path
 from scipy import spatial
 
 logger = get_logger('RL.ER.TransH')
@@ -34,7 +35,7 @@ class TransH(object):
         logger.info("Shape of neg triples: %s", str(self.ntriples.shape))
 
         #Define Embedding Variables
-        initializer = tf.contrib.layers.xavier_initializer(uniform = False)
+        initializer = tf.contrib.layers.xavier_initializer(uniform = True)
         regularizer = tf.contrib.layers.l2_regularizer(scale = regularizer_scale)
 
         self.ent_embeddings = tf.get_variable(name = "ent_embeddings", shape = [len(self.entity), dimension],
@@ -45,9 +46,9 @@ class TransH(object):
                                     initializer = initializer, regularizer = regularizer)
 
         #Define Placeholders for input
-        self.head = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.tail = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.rel = tf.placeholder(tf.int32, shape=[self.batchSize])
+        self.head = tf.placeholder(tf.int32, shape=[self.batchSize, 1])
+        self.tail = tf.placeholder(tf.int32, shape=[self.batchSize, 1])
+        self.rel = tf.placeholder(tf.int32, shape=[self.batchSize, 1])
         self.neg_head = tf.placeholder(tf.int32, shape=[self.batchSize, (neg_rate + neg_rel_rate)])
         self.neg_tail= tf.placeholder(tf.int32, shape=[self.batchSize, (neg_rate + neg_rel_rate)])
         self.neg_rel= tf.placeholder(tf.int32, shape=[self.batchSize, (neg_rate + neg_rel_rate)])
@@ -63,16 +64,16 @@ class TransH(object):
         pos_nnorm = tf.nn.embedding_lookup(self.norm_vector, self.neg_rel)
 
         #Normalize embedding vectors
-        pos_h = tf.nn.l2_normalize(pos_h, 1)
-        pos_t = tf.nn.l2_normalize(pos_t, 1)
-        pos_r = tf.nn.l2_normalize(pos_r, 1)
+        pos_h = tf.nn.l2_normalize(pos_h, [1,2])
+        pos_t = tf.nn.l2_normalize(pos_t, [1,2])
+        pos_r = tf.nn.l2_normalize(pos_r, [1,2])
 
-        pos_nh = tf.nn.l2_normalize(pos_nh, 1)
-        pos_nt = tf.nn.l2_normalize(pos_nt, 1)
-        pos_nr = tf.nn.l2_normalize(pos_nr, 1)
+        pos_nh = tf.nn.l2_normalize(pos_nh, [1,2])
+        pos_nt = tf.nn.l2_normalize(pos_nt, [1,2])
+        pos_nr = tf.nn.l2_normalize(pos_nr, [1,2])
 
-        pos_norm = tf.nn.l2_normalize(pos_norm, 1)
-        pos_nnorm = tf.nn.l2_normalize(pos_nnorm, 1)
+        pos_norm = tf.nn.l2_normalize(pos_norm, [1,2])
+        pos_nnorm = tf.nn.l2_normalize(pos_nnorm, [1,2])
 
         #Project entities to hyperplane
         pos_h = self._transfer(pos_h, pos_norm)
@@ -86,17 +87,26 @@ class TransH(object):
         _p_score = self._calc(pos_h, pos_t, pos_r)
         _n_score = self._calc(pos_nh, pos_nt, pos_nr)
 
-        p_score = tf.reduce_sum(_p_score, 1, keepdims=True)
-        n_score = tf.reduce_mean(tf.reduce_mean(_n_score, 1, keepdims=False), keepdims=True, axis=1)
+        p_score = tf.reduce_sum(tf.reduce_mean(_p_score, 0, keepdims=False), keepdims=True, axis=1)
+        n_score = tf.reduce_sum(tf.reduce_mean(_n_score, 0, keepdims=False), keepdims=True, axis=1)
         logger.info("PScore Shape %s. N_score Shape: %s", str(p_score.shape), str(n_score.shape))
 
         self.loss = tf.reduce_sum(tf.maximum(p_score - n_score + self.margin, 0))
+
+        #collect summary parameters
+        tf.summary.scalar('loss', self.loss)
+        tf.summary.scalar('pos_score', tf.reduce_mean(p_score))
+        tf.summary.scalar('neg_score', tf.reduce_mean(n_score))
 
         #Configure optimizer
         self.optimizer = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(self.loss)
 
         #Configure session
         self.sess = tf.Session()
+
+        #Confirgure summary location
+        self.merged = tf.summary.merge_all()
+        self.summary_writer = tf.summary.FileWriter(get_tf_summary_file_path(logger), self.sess.graph)
 
     def _calc(self, h, t, r):
         """
@@ -122,15 +132,23 @@ class TransH(object):
                     batchend = min(len(self.triples), i + self.batchSize)
                     neg_batchend = min(len(self.ntriples), i + self.batchSize*(self.neg_rate + self.neg_rel_rate))
                     feed_dict = {
-                        self.head : self.triples[i:batchend][:,0],
-                        self.tail : self.triples[i:batchend][:,1],
-                        self.rel  : self.triples[i:batchend][:,2],
+                        self.head : self.triples[i:batchend][:,0].reshape(self.batchSize, 1),
+                        self.tail : self.triples[i:batchend][:,1].reshape(self.batchSize, 1),
+                        self.rel  : self.triples[i:batchend][:,2].reshape(self.batchSize, 1),
                         self.neg_head : self.ntriples[i:neg_batchend][:,0].reshape(self.batchSize, (self.neg_rate + self.neg_rel_rate)),
                         self.neg_tail : self.ntriples[i:neg_batchend][:,1].reshape(self.batchSize, (self.neg_rate + self.neg_rel_rate)),
                         self.neg_rel : self.ntriples[i:neg_batchend][:,2].reshape(self.batchSize, (self.neg_rate + self.neg_rel_rate))
                         }
-                    _ , cur_loss = self.sess.run([self.optimizer, self.loss], feed_dict=feed_dict)
+
+                    if batchend == len(self.triples):
+                        _ , cur_loss, summary = self.sess.run([self.optimizer, self.loss, self.merged],
+                                                            feed_dict=feed_dict)
+                        self.summary_writer.add_summary(summary, epoch)
+                    else:
+                        _, cur_loss = self.sess.run([self.optimizer, self.loss], feed_dict=feed_dict)
+
                     loss = loss + cur_loss
+
                 if loss:
                     logger.info("Epoch: %d Loss: %f", epoch, loss)
                 else:

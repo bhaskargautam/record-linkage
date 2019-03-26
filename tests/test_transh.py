@@ -60,14 +60,14 @@ class TestTransH(unittest.TestCase):
 
         #Log MAP, MRR and Hits@K
         ir_metrics = InformationRetrievalMetrics(result_prob, graph.true_pairs)
-        ir_metrics.log_metrics(logger, params)
+        p_at_1 = ir_metrics.log_metrics(logger, params)
 
         transh.close_tf_session()
-        return max_fscore
+        return (max_fscore, p_at_1)
 
     def get_default_params(self):
-        return {'learning_rate': 0.1, 'margin': 1, 'dimension': 80, 'epochs': 500,
-                'regularizer_scale' : 0.1, 'batchSize' : 100, 'neg_rate' : 8, 'neg_rel_rate' : 2}
+        return {'learning_rate': 0.05, 'margin': 10, 'dimension': 128, 'epochs': 1000,
+                'regularizer_scale' : 0.2, 'batchSize' : 1024, 'neg_rate' : 7, 'neg_rel_rate' : 1}
 
     def test_transh_cora(self):
         self._test_transh(Cora, self.get_default_params())
@@ -79,31 +79,36 @@ class TestTransH(unittest.TestCase):
         self._test_transh(Census, self.get_default_params())
 
     def _test_grid_search(self, dataset):
-        dimension= [50, 80, 120]
-        batchSize= [100]
-        learning_rate= [0.1, 0.2]
-        margin= [0.5, 1]
-        regularizer_scale = [0.1, 0.2]
-        epochs = [100, 500]
-        neg_rel_rate = [1, 2, 5]
-        neg_rate = [1, 5, 10]
+        dimension= [128]
+        batchSize= [1024]
+        learning_rate= [0.05, 0.1]
+        margin= [1, 10]
+        regularizer_scale = [0.05, 0.1]
+        epochs = [1000]
+        neg_rel_rate = [1, 7]
+        neg_rate = [1, 4]
 
         model = dataset()
         logger = get_logger('RL.Test.GridSearch.TransH.' + str(model))
         count = 0
         max_fscore = 0
+        max_prec_at_1 = 0
+
         for d, bs, lr, m, reg, e, nr, nrr in \
                 itertools.product(dimension, batchSize, learning_rate, margin, regularizer_scale, epochs, neg_rate, neg_rel_rate):
             params = {'learning_rate': lr, 'margin': m, 'dimension': d, 'epochs': e, 'batchSize' : bs,
                         'regularizer_scale' : reg, 'neg_rate' : nr, 'neg_rel_rate' : nrr}
-            logger.info("\nPARAMS: %s", str(params))
+            logger.info("\nTest:%d PARAMS: %s", count, str(params))
             count = count + 1
-            cur_fscore = self._test_transh(dataset, params)
+            cur_fscore, cur_prec_at_1 = self._test_transh(dataset, params)
             if max_fscore <= cur_fscore:
                 max_fscore = cur_fscore
+            if max_prec_at_1 <= cur_prec_at_1:
+                max_prec_at_1 = cur_prec_at_1
 
-        logger.info("Ran total %d Tests.", count)
-        logger.info("Max Fscore: %f", max_fscore)
+            logger.info("Ran total %d Tests.", count)
+            logger.info("Max Fscore: %f", max_fscore)
+            logger.info("Max Precision@1: %f", max_prec_at_1)
 
     def test_transh_grid_search_cora(self):
         self._test_grid_search(Cora)
