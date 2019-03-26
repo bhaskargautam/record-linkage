@@ -44,7 +44,7 @@ def write_results(results_for, fscore, accuracy, precision, recall, params):
     result_log_filename = config.BASE_OUTPUT_FOLDER + config.DEFAULT_RESULT_LOG_FILE
     create_folder_if_missing(result_log_filename)
     with open(result_log_filename, 'a+') as f:
-        f.write("%s, %f, %f, %f, %f, %s\n" % (results_for, fscore, accuracy,
+        f.write("%s, %.2f, %.2f, %.2f, %.2f, %s\n" % (results_for, fscore, accuracy,
             precision, recall, str(params)))
 
 def log_quality_results(logger, result, true_links, total_pairs, params=None):
@@ -56,8 +56,8 @@ def log_quality_results(logger, result, true_links, total_pairs, params=None):
         accuracy = recordlinkage.accuracy(true_links, result, total_pairs)
         precision = recordlinkage.precision(true_links, result)
         recall = recordlinkage.recall(true_links, result)
-        logger.info("FScore: %f Accuracy : %f", fscore, accuracy)
-        logger.info("Precision: %f Recall %f", precision, recall)
+        logger.info("FScore: %.2f Accuracy : %.2f", fscore, accuracy)
+        logger.info("Precision: %.2f Recall %.2f", precision, recall)
         logger.info("For params : %s", str(params))
         write_results(logger.name, fscore, accuracy, precision, recall, params)
 
@@ -245,21 +245,21 @@ class InformationRetrievalMetrics(object):
         ir_log_filename = config.BASE_OUTPUT_FOLDER + config.DEFAULT_IR_RESULT_LOG_FILE
         create_folder_if_missing(ir_log_filename)
         with open(ir_log_filename, 'a+') as f:
-            f.write("%s, %f, %f, %f, %f, %s\n" % (results_for, p_at_1, p_at_10,
+            f.write("%s, %.2f, %.2f, %.2f, %.2f, %s\n" % (results_for, p_at_1, p_at_10,
                 mrr, mavp, str(params)))
 
     def log_metrics(self, logger, params=None):
         p_at_1 = self.get_mean_precisison_at_k(k=1)
-        logger.info("Mean Precision@1 = %f", p_at_1)
+        logger.info("Mean Precision@1 = %.2f", p_at_1)
 
         p_at_10 = self.get_mean_precisison_at_k(k=10)
-        logger.info("Mean Precision@10 = %f", p_at_10)
+        logger.info("Mean Precision@10 = %.2f", p_at_10)
 
         mrr = self.get_mean_reciprocal_rank()
-        logger.info("Mean Reciprocal Rank (MRR)= %f", mrr)
+        logger.info("Mean Reciprocal Rank (MRR)= %.2f", mrr)
 
         mavp = self.get_mean_average_precision()
-        logger.info("Mean Average Precision (MAP)= %f", mavp)
+        logger.info("Mean Average Precision (MAP)= %.2f", mavp)
 
         self._write_results(logger.name, p_at_1, p_at_10, mrr, mavp, params)
         return p_at_1
