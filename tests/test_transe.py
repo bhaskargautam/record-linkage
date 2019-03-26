@@ -82,19 +82,19 @@ class TestTransE(unittest.TestCase):
         self._test_transe(Census, self.get_default_params())
 
     def _test_grid_search(self, dataset):
-        dimension= [80, 128]
-        batchSize= [32, 1024]
-        learning_rate= [0.001, 0.1, 0.95]
+        dimension= [128]
+        batchSize= [1024]
+        learning_rate= [0.05, 0.1]
         margin= [1, 10]
-        regularizer_scale = [0.01, 0.1, 0.9]
-        epochs = [1000, 5000]
+        regularizer_scale = [0.05, 0.1]
+        epochs = [1000]
         neg_rel_rate = [1, 7]
         neg_rate = [1, 4]
         count = 0
         max_fscore = 0
         max_prec_at_1 = 0
 
-        model = None#dataset()
+        model = dataset()
         logger = get_logger('RL.Test.GridSearch.TransE.' + str(model))
 
         for d, bs, lr, m, reg, e, nr, nrr in \
@@ -103,16 +103,15 @@ class TestTransE(unittest.TestCase):
                         'regularizer_scale' : reg, 'neg_rate' : nr, 'neg_rel_rate': nrr}
             logger.info("\nTest:%d, PARAMS: %s", count, str(params))
             count = count + 1
-
             cur_fscore, cur_prec_at_1 = self._test_transe(dataset, params)
             if max_fscore <= cur_fscore:
                 max_fscore = cur_fscore
             if max_prec_at_1 <= cur_prec_at_1:
                 max_prec_at_1 = cur_prec_at_1
 
-        logger.info("Ran total %d Tests.", count)
-        logger.info("Max Fscore: %f", max_fscore)
-        logger.info("Max Mean Precision@1: %f", max_prec_at_1)
+            logger.info("Ran total %d Tests.", count)
+            logger.info("Max Fscore: %f", max_fscore)
+            logger.info("Max Mean Precision@1: %f", max_prec_at_1)
 
     def test_grid_search_cora(self):
         self._test_grid_search(Cora)
