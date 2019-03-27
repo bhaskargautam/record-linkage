@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
-from common import sigmoid, get_logger, get_negative_samples
+from common import get_logger, get_negative_samples, get_tf_summary_file_path
 from scipy import spatial
 
 logger = get_logger('RL.EAR.KR_EAR')
@@ -36,7 +36,7 @@ class KR_EAR(object):
                                 neg_rate = self.neg_rate, neg_rel_rate = self.neg_rel_rate))
 
         #Define Embedding Variables
-        initializer = tf.contrib.layers.xavier_initializer(uniform = False)
+        initializer = tf.contrib.layers.xavier_initializer(uniform = True)
         regularizer = tf.contrib.layers.l2_regularizer(scale = regularizer_scale)
 
         self.ent_embeddings = tf.get_variable(name = "ent_embeddings", shape = [len(self.entity), dimension],
@@ -51,16 +51,16 @@ class KR_EAR(object):
                                     initializer = initializer, regularizer = regularizer)
 
         #Define Placeholders for input
-        self.head = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.tail = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.rel = tf.placeholder(tf.int32, shape=[self.batchSize])
+        self.head = tf.placeholder(tf.int32, shape=[self.batchSize, 1])
+        self.tail = tf.placeholder(tf.int32, shape=[self.batchSize, 1])
+        self.rel = tf.placeholder(tf.int32, shape=[self.batchSize, 1])
         self.neg_head = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
         self.neg_tail = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
         self.neg_rel = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
 
-        self.attr_head = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.val = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.attr = tf.placeholder(tf.int32, shape=[self.batchSize])
+        self.attr_head = tf.placeholder(tf.int32, shape=[self.batchSize, 1])
+        self.val = tf.placeholder(tf.int32, shape=[self.batchSize, 1])
+        self.attr = tf.placeholder(tf.int32, shape=[self.batchSize, 1])
         self.neg_attr_head = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
         self.neg_val = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
         self.neg_attr = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
@@ -74,12 +74,12 @@ class KR_EAR(object):
         pos_nr = tf.nn.embedding_lookup(self.rel_embeddings, self.neg_rel)
 
         #Normalize vectors
-        pos_h = tf.nn.l2_normalize(pos_h, 1)
-        pos_t = tf.nn.l2_normalize(pos_t, 1)
-        pos_r = tf.nn.l2_normalize(pos_r, 1)
-        pos_nh = tf.nn.l2_normalize(pos_nh, 1)
-        pos_nt = tf.nn.l2_normalize(pos_nt, 1)
-        pos_nr = tf.nn.l2_normalize(pos_nr, 1)
+        pos_h = tf.nn.l2_normalize(pos_h, [1,2])
+        pos_t = tf.nn.l2_normalize(pos_t, [1,2])
+        pos_r = tf.nn.l2_normalize(pos_r, [1,2])
+        pos_nh = tf.nn.l2_normalize(pos_nh, [1,2])
+        pos_nt = tf.nn.l2_normalize(pos_nt, [1,2])
+        pos_nr = tf.nn.l2_normalize(pos_nr, [1,2])
 
         #Load Embedding Vectors for Attributional Triple
         pos_attr_h = tf.nn.embedding_lookup(self.ent_embeddings, self.attr_head)
@@ -90,20 +90,20 @@ class KR_EAR(object):
         pos_attr_na = tf.nn.embedding_lookup(self.attr_embeddings, self.neg_attr)
 
         #Normalize vectors
-        pos_attr_h = tf.nn.l2_normalize(pos_attr_h)
-        pos_val = tf.nn.l2_normalize(pos_val)
-        pos_attr = tf.nn.l2_normalize(pos_attr)
-        pos_attr_nh = tf.nn.l2_normalize(pos_attr_nh)
-        pos_attr_nv = tf.nn.l2_normalize(pos_attr_nv)
-        pos_attr_na = tf.nn.l2_normalize(pos_attr_na)
+        pos_attr_h = tf.nn.l2_normalize(pos_attr_h, [1,2])
+        pos_val = tf.nn.l2_normalize(pos_val, [1,2])
+        pos_attr = tf.nn.l2_normalize(pos_attr, [1,2])
+        pos_attr_nh = tf.nn.l2_normalize(pos_attr_nh, [1,2])
+        pos_attr_nv = tf.nn.l2_normalize(pos_attr_nv, [1,2])
+        pos_attr_na = tf.nn.l2_normalize(pos_attr_na, [1,2])
 
         #Load Normal Vectors
         pos_proj = tf.nn.embedding_lookup(self.projection_matrix, self.attr)
         pos_nproj = tf.nn.embedding_lookup(self.projection_matrix, self.neg_attr)
 
         #Normalize vectors
-        pos_proj = tf.nn.l2_normalize(pos_proj)
-        pos_nproj = tf.nn.l2_normalize(pos_nproj)
+        pos_proj = tf.nn.l2_normalize(pos_proj, [1,2])
+        pos_nproj = tf.nn.l2_normalize(pos_nproj, [1,2])
 
         proj_pos_attr_h = self._transfer(pos_attr_h, pos_proj)
         proj_pos_attr_nh = self._transfer(pos_attr_nh, pos_nproj)
@@ -115,10 +115,10 @@ class KR_EAR(object):
         _ap_score = self._attr_calc(proj_pos_attr_h, pos_val, pos_attr)
         _an_score = self._attr_calc(proj_pos_attr_nh, pos_attr_nv, pos_attr_na)
 
-        p_score = tf.reduce_sum(_p_score, 1, keepdims=True)
-        n_score = tf.reduce_mean(tf.reduce_mean(_n_score, 1, keepdims=False), axis=1, keepdims=True)
-        ap_score = tf.reduce_sum(_ap_score, 1, keepdims=True)
-        an_score = tf.reduce_mean(tf.reduce_mean(_an_score, 1, keepdims=False), axis=1, keepdims=True)
+        p_score = tf.reduce_sum(tf.reduce_mean(_p_score, 1, keepdims=False), axis=1, keepdims=True)
+        n_score = tf.reduce_sum(tf.reduce_mean(_n_score, 1, keepdims=False), axis=1, keepdims=True)
+        ap_score = tf.reduce_sum(tf.reduce_mean(_ap_score, 1, keepdims=False), axis=1, keepdims=True)
+        an_score = tf.reduce_sum(tf.reduce_mean(_an_score, 1, keepdims=False), axis=1, keepdims=True)
         self.rel_loss = tf.reduce_sum(tf.maximum(p_score - n_score + self.margin, 0))
         self.attr_loss = tf.reduce_sum(tf.maximum(ap_score - an_score + self.margin, 0))
 
@@ -128,6 +128,21 @@ class KR_EAR(object):
 
          #Configure session
         self.sess = tf.Session()
+
+        #Collect summary for tensorboard
+        tf.summary.scalar('attr_loss', self.attr_loss, collections=['attr'])
+        tf.summary.scalar('rel_loss', self.rel_loss, collections=['rel'])
+        tf.summary.scalar('p_score', tf.reduce_mean(p_score), collections=['rel'])
+        tf.summary.scalar('n_score', tf.reduce_mean(n_score), collections=['rel'])
+        tf.summary.scalar('ap_score', tf.reduce_mean(ap_score), collections=['attr'])
+        tf.summary.scalar('an_score', tf.reduce_mean(an_score), collections=['attr'])
+
+
+        #Confirgure summary location
+        self.merged_attr = tf.summary.merge_all(key='attr')
+        self.merged_rel = tf.summary.merge_all(key='rel')
+        self.attr_summary_writer = tf.summary.FileWriter(get_tf_summary_file_path(logger) + '_attr', self.sess.graph)
+        self.rel_summary_writer = tf.summary.FileWriter(get_tf_summary_file_path(logger) +'_rel', self.sess.graph)
 
 
     def _calc(self, h, t, r):
@@ -155,17 +170,25 @@ class KR_EAR(object):
                     batchend = min(len(self.rtriples), i + self.batchSize)
                     neg_batchend = min(len(self.nrtriples), i + self.batchSize*(self.neg_rate + self.neg_rel_rate))
                     feed_dict = {
-                        self.head : self.rtriples[i:batchend][:,0],
-                        self.tail : self.rtriples[i:batchend][:,1],
-                        self.rel : self.rtriples[i:batchend][:,2],
+                        self.head : self.rtriples[i:batchend][:,0].reshape(self.batchSize, 1),
+                        self.tail : self.rtriples[i:batchend][:,1].reshape(self.batchSize, 1),
+                        self.rel : self.rtriples[i:batchend][:,2].reshape(self.batchSize, 1),
                         self.neg_head : self.nrtriples[i:neg_batchend][:,0].reshape(self.batchSize, (self.neg_rate + self.neg_rel_rate)),
                         self.neg_tail : self.nrtriples[i:neg_batchend][:,1].reshape(self.batchSize, (self.neg_rate + self.neg_rel_rate)),
                         self.neg_rel : self.nrtriples[i:neg_batchend][:,2].reshape(self.batchSize, (self.neg_rate + self.neg_rel_rate))
                     }
-                    _, cur_rel_loss = self.sess.run([self.rel_optimizer, self.rel_loss],
-                        feed_dict=feed_dict)
+
+                    if batchend == len(self.rtriples):
+                        _, cur_rel_loss, summary = self.sess.run([self.rel_optimizer, self.rel_loss, self.merged_rel],
+                            feed_dict=feed_dict)
+                        self.rel_summary_writer.add_summary(summary, epoch)
+                    else:
+                        _, cur_rel_loss = self.sess.run([self.rel_optimizer, self.rel_loss],
+                            feed_dict=feed_dict)
+
                     #logger.info("Cur rel loss: %f", cur_rel_loss)
                     rel_loss = rel_loss + cur_rel_loss
+
 
                 #Attributional Triple Encoder
                 for i in np.arange(0, len(self.atriples), self.batchSize):
@@ -173,15 +196,20 @@ class KR_EAR(object):
                     neg_batchend = min(len(self.natriples), i + self.batchSize*(self.neg_rate + self.neg_rel_rate))
 
                     feed_dict = {
-                        self.attr_head : self.atriples[i:batchend][:,0],
-                        self.val : self.atriples[i:batchend][:,1],
-                        self.attr : self.atriples[i:batchend][:,2],
+                        self.attr_head : self.atriples[i:batchend][:,0].reshape(self.batchSize, 1),
+                        self.val : self.atriples[i:batchend][:,1].reshape(self.batchSize, 1),
+                        self.attr : self.atriples[i:batchend][:,2].reshape(self.batchSize, 1),
                         self.neg_attr_head : self.natriples[i:neg_batchend][:,0].reshape(self.batchSize, (self.neg_rate + self.neg_rel_rate)),
                         self.neg_val : self.natriples[i:neg_batchend][:,1].reshape(self.batchSize, (self.neg_rate + self.neg_rel_rate)),
                         self.neg_attr : self.natriples[i:neg_batchend][:,2].reshape(self.batchSize, (self.neg_rate + self.neg_rel_rate))
                     }
-                    _, cur_attr_loss = self.sess.run([self.attr_optimizer, self.attr_loss],
-                        feed_dict=feed_dict)
+                    if batchend == len(self.atriples):
+                        _, cur_attr_loss, summary = self.sess.run([self.attr_optimizer, self.attr_loss, self.merged_attr],
+                            feed_dict=feed_dict)
+                        self.attr_summary_writer.add_summary(summary, epoch)
+                    else:
+                        _, cur_attr_loss = self.sess.run([self.attr_optimizer, self.attr_loss],
+                            feed_dict=feed_dict)
                     #logger.info("Cur attr loss: %f", cur_attr_loss)
                     attr_loss = attr_loss + cur_attr_loss
 
