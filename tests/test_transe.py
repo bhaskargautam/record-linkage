@@ -82,13 +82,13 @@ class TestTransE(unittest.TestCase):
         self._test_transe(Census, self.get_default_params())
 
     def _test_grid_search(self, dataset):
-        dimension= [128]
-        batchSize= [1024]
-        learning_rate= [0.05, 0.1]
-        margin= [1, 10]
-        regularizer_scale = [0.05, 0.1]
-        epochs = [1000]
-        neg_rel_rate = [1, 7]
+        dimension= [128, 256]
+        batchSize= [1024, 32]
+        learning_rate= [0.1]
+        margin= [1]
+        regularizer_scale = [0.1]
+        epochs = [1000, 5000]
+        neg_rel_rate = [7, 12]
         neg_rate = [1, 4]
         count = 0
         max_fscore = 0
@@ -103,6 +103,7 @@ class TestTransE(unittest.TestCase):
                         'regularizer_scale' : reg, 'neg_rate' : nr, 'neg_rel_rate': nrr}
             logger.info("\nTest:%d, PARAMS: %s", count, str(params))
             count = count + 1
+
             cur_fscore, cur_prec_at_1 = self._test_transe(dataset, params)
             if max_fscore <= cur_fscore:
                 max_fscore = cur_fscore
