@@ -79,14 +79,14 @@ class TestTransH(unittest.TestCase):
         self._test_transh(Census, self.get_default_params())
 
     def _test_grid_search(self, dataset):
-        dimension= [128, 256]
-        batchSize= [256, 512]
+        dimension= [64, 512]
+        batchSize= [32, 1024]
         learning_rate= [0.1]
-        margin= [1, 0.1]
+        margin= [1, 2]
         regularizer_scale = [0.1]
-        epochs = [1000]
-        neg_rel_rate = [1, 7]
-        neg_rate = [1, 4]
+        epochs = [5000]
+        neg_rel_rate = [1, 4]
+        neg_rate = [1, 7]
 
         model = dataset()
         logger = get_logger('RL.Test.GridSearch.TransH.' + str(model))
