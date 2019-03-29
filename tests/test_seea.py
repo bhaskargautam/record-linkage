@@ -37,7 +37,7 @@ class Test_SEEA(unittest.TestCase):
                                     max_epochs = params['max_epochs'])
         try:
             result_pairs = pd.MultiIndex.from_tuples(results)
-            log_quality_results(logger, result_pairs, graph.true_pairs, len(graph.entity_pairs), params)
+            fscore = log_quality_results(logger, result_pairs, graph.true_pairs, len(graph.entity_pairs), params)
         except Exception as e:
             logger.error(e)
             logger.info("No Aligned pairs found.")
@@ -53,13 +53,14 @@ class Test_SEEA(unittest.TestCase):
 
         #Log MAP, MRR and Hits@K
         ir_metrics = InformationRetrievalMetrics(result_prob, graph.true_pairs)
-        ir_metrics.log_metrics(logger, params)
+        prec_at_1 = ir_metrics.log_metrics(logger, params)
 
         seea.close_tf_session()
+        return (fscore, prec_at_1)
 
     def get_default_params(self):
-        return {'beta': 100, 'max_iter' : 100, 'dimension': 80, 'learning_rate' : 0.1, 'batchSize' : 100,
-                'margin' : 1, 'regularizer_scale' : 0.1, 'max_epochs' : 100, 'neg_rate' : 10, 'neg_rel_rate': 0}
+        return {'beta': 256, 'max_iter' : 10, 'dimension': 128, 'learning_rate' : 0.1, 'batchSize' : 256,
+                'margin' : 10, 'regularizer_scale' : 0.1, 'max_epochs' : 50, 'neg_rate' : 7, 'neg_rel_rate': 1}
 
     def test_seea_cora(self):
         self._test_seea(Cora, self.get_default_params())
@@ -83,6 +84,7 @@ class Test_SEEA(unittest.TestCase):
         max_iter = [10, 100]
         count = 0
         max_fscore = 0
+        max_prec_at_1 = 0
 
         logger = get_logger('RL.Test.GridSearch.SEEA.' + str(file_prefix))
 
@@ -92,12 +94,15 @@ class Test_SEEA(unittest.TestCase):
                         'regularizer_scale' : reg, 'neg_rate' : nr, 'neg_rel_rate': nrr, 'max_iter' : mi}
             logger.info("\nPARAMS: %s", str(params))
             count = count + 1
-            cur_fscore = self._test_seea(model, file_prefix, params)
+            cur_fscore, cur_prec_at_1 = self._test_seea(model, file_prefix, params)
             if max_fscore <= cur_fscore:
                 max_fscore = cur_fscore
+            if max_prec_at_1 <= cur_prec_at_1:
+                max_prec_at_1 = cur_prec_at_1
 
-        logger.info("Ran total %d Tests.", count)
-        logger.info("Max Fscore: %f", max_fscore)
+            logger.info("Ran total %d Tests.", count)
+            logger.info("Max Fscore: %f", max_fscore)
+            logger.info("Max Precision@1: %f", max_prec_at_1)
 
     def test_grid_search_cora(self):
         self._test_grid_search(Cora)

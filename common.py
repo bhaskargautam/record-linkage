@@ -63,6 +63,7 @@ def log_quality_results(logger, result, true_links, total_pairs, params=None):
 
     except ZeroDivisionError:
         logger.error("ZeroDivisionError!!")
+    return fscore
 
 def sigmoid(x):
     return 1.0 / (1 + np.exp(-x))
@@ -81,9 +82,11 @@ def get_negative_samples(triples, total_head, total_tail, total_rel,
     tuple_triples = set(map(tuple, triples))
     tuple_ep = set(map(tuple, entity_pairs))
     logger = get_logger("RL.NEG_ATTR_SAMPLER")
+    logger.debug("BEGAN with Total Head: %d, Total Tail: %d, Total Triple: %d", total_head, total_tail, len(tuple_triples))
+    logger.debug("Total rel: %d Total EP: %d", total_rel, len(tuple_ep))
 
     for (h, t, r) in triples:
-        #logger.debug("Finding neg sample for %d, %d, %d", h, t, r)
+        logger.debug("Finding neg sample for %d, %d, %d", h, t, r)
         for neg_iter in range(0, neg_rate):
             rand_choice = random.randint(0,1)
             if(rand_choice == 0):
@@ -96,7 +99,7 @@ def get_negative_samples(triples, total_head, total_tail, total_rel,
                     if (neg_head, t, r) not in tuple_triples:
                         ntriples.append((neg_head, t, r))
                         break
-                #logger.debug("Replaced head: %s", str(ntriples[-1]))
+                logger.debug("Replaced head: %s", str(ntriples[-1]))
             else:
                 #replace tail with neg_tail
                 while True:
@@ -107,17 +110,19 @@ def get_negative_samples(triples, total_head, total_tail, total_rel,
                     if (h, neg_tail, r) not in tuple_triples:
                         ntriples.append((h, neg_tail, r))
                         break
-                #logger.debug("Replaced tail: %s", str(ntriples[-1]))
-        for neg_iter in range(0, neg_rel_rate):
-            #replace rel with neg_rel
-            while True:
-                neg_rel = random.choice(all_rel_index)
-                if neg_rel == r:
-                    continue
-                if (h, t, neg_rel) not in tuple_triples:
-                    ntriples.append((h, t, neg_rel))
-                    break
-            #logger.debug("Replaced rel: %s", str(ntriples[-1]))
+                logger.debug("Replaced tail: %s", str(ntriples[-1]))
+
+        if total_rel > 1:
+            for neg_iter in range(0, neg_rel_rate):
+                #replace rel with neg_rel
+                while True:
+                    neg_rel = random.choice(all_rel_index)
+                    if neg_rel == r:
+                        continue
+                    if (h, t, neg_rel) not in tuple_triples:
+                        ntriples.append((h, t, neg_rel))
+                        break
+                logger.debug("Replaced rel: %s", str(ntriples[-1]))
 
     logger.info("Number of negative triples: %d", len(ntriples))
     return ntriples

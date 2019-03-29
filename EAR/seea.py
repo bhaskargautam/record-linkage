@@ -1,12 +1,20 @@
 import numpy as np
 import tensorflow as tf
 
-from common import sigmoid, get_logger, get_negative_samples
+from common import get_logger, get_negative_samples, get_tf_summary_file_path
 from scipy import spatial
 
 logger = get_logger('RL.EAR.SEEA')
 
 class SEEA(object):
+
+    #Special Weights for few attributes (attr, weight)
+    #Attr energy function is multiplied by weight
+    special_attr_weight_dict = {
+        'title' : 8.0, #For Cora
+        'surname' : 8.0, #For FEBRL
+        'yob' : 8.0 #For Census
+    }
 
     def __init__(self, graph_ear, dimension=10, learning_rate=0.1, batchSize=100,
                         margin=1, regularizer_scale = 0.1, neg_rate=1, neg_rel_rate=0):
@@ -22,6 +30,14 @@ class SEEA(object):
         self.neg_rel_rate = neg_rel_rate
         self.entity_pairs = graph_ear.entity_pairs
         self.true_pairs = graph_ear.true_pairs
+
+        #Build attr weight vector
+        self.attr_weights = []
+        for a in self.attribute:
+            self.attr_weights.append(SEEA.special_attr_weight_dict.get(a, 1.0))
+        logger.info("Using attr weights as: %s", str(self.attr_weights))
+        self.attr_weights = tf.constant(self.attr_weights, dtype=tf.float32)
+        logger.info("Attr wt Tensor: %s", str(self.attr_weights))
 
         # List of triples. Remove last incomplete batch if any.
         self.atriples = np.array(graph_ear.atriples[0: (len(graph_ear.atriples) -
@@ -55,19 +71,29 @@ class SEEA(object):
                                     initializer = initializer, regularizer = regularizer)
 
         #Define Placeholders for input
-        self.head = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.tail = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.rel = tf.placeholder(tf.int32, shape=[self.batchSize])
+        self.head = tf.placeholder(tf.int32, shape=[self.batchSize, 1])
+        self.tail = tf.placeholder(tf.int32, shape=[self.batchSize, 1])
+        self.rel = tf.placeholder(tf.int32, shape=[self.batchSize, 1])
         self.neg_head = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
         self.neg_tail = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
         self.neg_rel = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
 
-        self.attr_head = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.val = tf.placeholder(tf.int32, shape=[self.batchSize])
-        self.attr = tf.placeholder(tf.int32, shape=[self.batchSize])
+        self.attr_head = tf.placeholder(tf.int32, shape=[self.batchSize, 1])
+        self.val = tf.placeholder(tf.int32, shape=[self.batchSize, 1])
+        self.attr = tf.placeholder(tf.int32, shape=[self.batchSize, 1])
         self.neg_attr_head = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
         self.neg_val = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
         self.neg_attr = tf.placeholder(tf.int32, shape=[self.batchSize, (self.neg_rel_rate + self.neg_rate)])
+
+        #Load Attr Weights
+        self.p_attr_wt = tf.map_fn(lambda a: tf.map_fn(lambda x: self.attr_weights[x], a, dtype=tf.float32), self.attr, dtype=tf.float32)
+        self.n_attr_wt = tf.map_fn(lambda a: tf.map_fn(lambda x: self.attr_weights[x], a, dtype=tf.float32), self.neg_attr, dtype=tf.float32)
+        logger.info("Tensor of Pos Attr Wt.: %s", str(self.p_attr_wt))
+        logger.info("Tensor of Neg Attr Wt.: %s", str(self.n_attr_wt))
+        self.p_attr_wt = tf.cast(tf.tile(tf.expand_dims(self.p_attr_wt, 2), [1, 1, self.dimension]), tf.float32)
+        self.n_attr_wt = tf.cast(tf.tile(tf.expand_dims(self.n_attr_wt, 2), [1, 1 ,self.dimension]), tf.float32)
+        logger.info("Tensor of Pos Attr Wt.: %s", str(self.p_attr_wt))
+        logger.info("Tensor of Neg Attr Wt.: %s", str(self.n_attr_wt))
 
         #Load Embedding Vectors
         pos_h = tf.nn.embedding_lookup(self.ent_embeddings, self.head)
@@ -86,20 +112,20 @@ class SEEA(object):
         pos_nproj = tf.nn.embedding_lookup(self.projection_matrix, self.neg_attr)
 
         #Normalize Vectors
-        pos_h = tf.nn.l2_normalize(pos_h)
-        pos_t = tf.nn.l2_normalize(pos_t)
-        pos_r = tf.nn.l2_normalize(pos_r)
-        pos_nh = tf.nn.l2_normalize(pos_nh)
-        pos_nt = tf.nn.l2_normalize(pos_nt)
-        pos_nr = tf.nn.l2_normalize(pos_nr)
-        pos_attr_h = tf.nn.l2_normalize(pos_attr_h)
-        pos_val = tf.nn.l2_normalize(pos_val)
-        pos_attr = tf.nn.l2_normalize(pos_attr)
-        pos_attr_nh = tf.nn.l2_normalize(pos_attr_nh)
-        pos_attr_nv = tf.nn.l2_normalize(pos_attr_nv)
-        pos_attr_na = tf.nn.l2_normalize(pos_attr_na)
-        pos_proj = tf.nn.l2_normalize(pos_proj)
-        pos_nproj = tf.nn.l2_normalize(pos_nproj)
+        pos_h = tf.nn.l2_normalize(pos_h, [1,2])
+        pos_t = tf.nn.l2_normalize(pos_t, [1,2])
+        pos_r = tf.nn.l2_normalize(pos_r, [1,2])
+        pos_nh = tf.nn.l2_normalize(pos_nh, [1,2])
+        pos_nt = tf.nn.l2_normalize(pos_nt, [1,2])
+        pos_nr = tf.nn.l2_normalize(pos_nr, [1,2])
+        pos_attr_h = tf.nn.l2_normalize(pos_attr_h, [1,2])
+        pos_val = tf.nn.l2_normalize(pos_val, [1,2])
+        pos_attr = tf.nn.l2_normalize(pos_attr, [1,2])
+        pos_attr_nh = tf.nn.l2_normalize(pos_attr_nh, [1,2])
+        pos_attr_nv = tf.nn.l2_normalize(pos_attr_nv, [1,2])
+        pos_attr_na = tf.nn.l2_normalize(pos_attr_na, [1,2])
+        pos_proj = tf.nn.l2_normalize(pos_proj, [1,2])
+        pos_nproj = tf.nn.l2_normalize(pos_nproj, [1,2])
 
         #Project Entities to attribute space
         proj_pos_attr_h = self._transfer(pos_attr_h, pos_proj)
@@ -111,11 +137,20 @@ class SEEA(object):
 
         _ap_score = self._attr_calc(proj_pos_attr_h, pos_val, pos_attr)
         _an_score = self._attr_calc(proj_pos_attr_nh, pos_attr_nv, pos_attr_na)
+        logger.info("Shape of APSCORE.: %s", str(_ap_score.shape))
+        logger.info("Shape of ANSCORE.: %s", str(_an_score.shape))
 
-        p_score = tf.reduce_sum(_p_score, 1, keepdims=True)
-        n_score = tf.reduce_mean(tf.reduce_mean(_n_score, 1, keepdims=False), axis=1, keepdims=True)
-        ap_score = tf.reduce_sum(_ap_score, 1, keepdims=True)
-        an_score = tf.reduce_mean(tf.reduce_mean(_an_score, 1, keepdims=False), axis=1, keepdims=True)
+        _wap_score = tf.math.multiply(_ap_score, self.p_attr_wt)
+        _wan_score = tf.math.multiply(_an_score, self.n_attr_wt)
+        logger.info("Shape of APSCORE.: %s", str(_wap_score.shape))
+        logger.info("Shape of ANSCORE.: %s", str(_wan_score.shape))
+
+        p_score = tf.reduce_sum(tf.reduce_mean(_p_score, 1, keepdims=False), axis=1, keepdims=True)
+        n_score = tf.reduce_sum(tf.reduce_mean(_n_score, 1, keepdims=False), axis=1, keepdims=True)
+        ap_score = tf.reduce_sum(tf.reduce_mean(_wap_score, 1, keepdims=False), axis=1, keepdims=True)
+        an_score = tf.reduce_sum(tf.reduce_mean(_wan_score, 1, keepdims=False), axis=1, keepdims=True)
+        logger.info("Shape of APSCORE*.: %s", str(ap_score.shape))
+        logger.info("Shape of ANSCORE*.: %s", str(an_score.shape))
         self.rel_loss = tf.reduce_sum(tf.maximum(p_score - n_score + self.margin, 0))
         self.attr_loss = tf.reduce_sum(tf.maximum(ap_score - an_score + self.margin, 0))
 
@@ -125,6 +160,19 @@ class SEEA(object):
 
          #Configure session
         self.sess = tf.Session()
+
+        #Collect summary for tensorboard
+        tf.summary.scalar('attr_loss', self.attr_loss, collections=['attr'])
+        tf.summary.scalar('rel_loss', self.rel_loss, collections=['rel'])
+        tf.summary.scalar('p_score', tf.reduce_mean(p_score), collections=['rel'])
+        tf.summary.scalar('n_score', tf.reduce_mean(n_score), collections=['rel'])
+        tf.summary.scalar('ap_score', tf.reduce_mean(ap_score), collections=['attr'])
+        tf.summary.scalar('an_score', tf.reduce_mean(an_score), collections=['attr'])
+
+        self.merged_attr = tf.summary.merge_all(key='attr')
+        self.merged_rel = tf.summary.merge_all(key='rel')
+        self.attr_summary_writer = tf.summary.FileWriter(get_tf_summary_file_path(logger) + '_attr', self.sess.graph)
+        self.rel_summary_writer = tf.summary.FileWriter(get_tf_summary_file_path(logger) +'_rel', self.sess.graph)
 
     def _calc(self, h, t, r):
         """
@@ -139,10 +187,10 @@ class SEEA(object):
     def _transfer(self, e, n):
         return e - tf.reduce_sum(e * n, 1, keepdims = True) * n
 
-    def train(self, max_epochs=100):
+    def train(self, max_epochs=100, iter_num=0):
         loss = 0
         with self.sess.as_default():
-            self.sess.run(tf.global_variables_initializer())
+            #self.sess.run(tf.global_variables_initializer())
             for epoch in range(0, max_epochs):
                 rel_loss = attr_loss = 0
 
@@ -151,15 +199,20 @@ class SEEA(object):
                     batchend = min(len(self.rtriples), i + self.batchSize)
                     neg_batchend = min(len(self.nrtriples), i + self.batchSize*(self.neg_rate + self.neg_rel_rate))
                     feed_dict = {
-                        self.head : self.rtriples[i:batchend][:,0],
-                        self.tail : self.rtriples[i:batchend][:,1],
-                        self.rel : self.rtriples[i:batchend][:,2],
+                        self.head : self.rtriples[i:batchend][:,0].reshape(self.batchSize, 1),
+                        self.tail : self.rtriples[i:batchend][:,1].reshape(self.batchSize, 1),
+                        self.rel : self.rtriples[i:batchend][:,2].reshape(self.batchSize, 1),
                         self.neg_head : self.nrtriples[i:neg_batchend][:,0].reshape(self.batchSize, self.neg_rel_rate + self.neg_rate),
                         self.neg_tail : self.nrtriples[i:neg_batchend][:,1].reshape(self.batchSize, self.neg_rel_rate + self.neg_rate),
                         self.neg_rel : self.nrtriples[i:neg_batchend][:,2].reshape(self.batchSize, self.neg_rel_rate + self.neg_rate)
                     }
-                    _, cur_rel_loss = self.sess.run([self.rel_optimizer, self.rel_loss],
-                        feed_dict=feed_dict)
+                    if batchend == len(self.rtriples):
+                        _, cur_rel_loss, summary = self.sess.run([self.rel_optimizer, self.rel_loss, self.merged_rel],
+                            feed_dict=feed_dict)
+                        self.rel_summary_writer.add_summary(summary, iter_num*max_epochs + epoch)
+                    else:
+                        _, cur_rel_loss = self.sess.run([self.rel_optimizer, self.rel_loss],
+                            feed_dict=feed_dict)
                     #logger.info("Cur rel loss: %f", cur_rel_loss)
                     rel_loss = rel_loss + cur_rel_loss
 
@@ -169,15 +222,20 @@ class SEEA(object):
                     neg_batchend = min(len(self.natriples), i + self.batchSize*(self.neg_rate + self.neg_rel_rate))
 
                     feed_dict = {
-                        self.attr_head : self.atriples[i:batchend][:,0],
-                        self.val : self.atriples[i:batchend][:,1],
-                        self.attr : self.atriples[i:batchend][:,2],
+                        self.attr_head : self.atriples[i:batchend][:,0].reshape(self.batchSize, 1),
+                        self.val : self.atriples[i:batchend][:,1].reshape(self.batchSize, 1),
+                        self.attr : self.atriples[i:batchend][:,2].reshape(self.batchSize, 1),
                         self.neg_attr_head : self.natriples[i:neg_batchend][:,0].reshape(self.batchSize, self.neg_rel_rate + self.neg_rate),
                         self.neg_val : self.natriples[i:neg_batchend][:,1].reshape(self.batchSize, self.neg_rel_rate + self.neg_rate),
                         self.neg_attr : self.natriples[i:neg_batchend][:,2].reshape(self.batchSize, self.neg_rel_rate + self.neg_rate)
                     }
-                    _, cur_attr_loss = self.sess.run([self.attr_optimizer, self.attr_loss],
-                        feed_dict=feed_dict)
+                    if batchend == len(self.atriples):
+                        _, cur_attr_loss, summary = self.sess.run([self.attr_optimizer, self.attr_loss, self.merged_attr],
+                            feed_dict=feed_dict)
+                        self.attr_summary_writer.add_summary(summary, iter_num*max_epochs + epoch)
+                    else:
+                        _, cur_attr_loss = self.sess.run([self.attr_optimizer, self.attr_loss],
+                            feed_dict=feed_dict)
                     #logger.info("Cur attr loss: %f", cur_attr_loss)
                     attr_loss = attr_loss + cur_attr_loss
 
@@ -247,9 +305,15 @@ class SEEA(object):
         return len(self.rtriples)
 
     def seea_iterate(self, beta=10, max_iter=100, max_epochs=100, swap_relations=False):
+        #Initialize tensorflow graph
+        with self.sess.as_default():
+            self.sess.run(tf.global_variables_initializer())
+
         predicted_pairs = []
+        correct_prediction_count = 0
         for j in range(0, max_iter):
-            loss = self.train(max_epochs)
+
+            loss = self.train(max_epochs, j)
             logger.info("Training Complete with loss: %f for iteration: %d", loss, j)
 
             aligned_pairs = self.get_top_beta_pairs(beta)
@@ -269,7 +333,10 @@ class SEEA(object):
             #Removed aligned pairs from candidate pairs
             for (e1, e2) in aligned_pairs:
                 self.entity_pairs.remove((e1,e2))
-                logger.info("%d, %d aligned. In True pairs: %s", e1, e2, (e1, e2) in self.true_pairs)
+                logger.debug("%d, %d aligned. In True pairs: %s", e1, e2, (e1, e2) in self.true_pairs)
+                if (e1, e2) in self.true_pairs:
+                    correct_prediction_count = correct_prediction_count + 1
+            logger.info("%d/%d correctly aligned pairs", correct_prediction_count, len(predicted_pairs))
 
         logger.info("End of SEEA iterations: Max iteration reached.")
         return predicted_pairs
