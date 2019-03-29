@@ -1,5 +1,6 @@
-import unittest
 import copy
+import pandas as pd
+import unittest
 
 from common import (
     export_embeddings,
@@ -26,7 +27,11 @@ class TestMTransE(unittest.TestCase):
         mtranse = MTransE(graph, dimension=params['dimension'],
                                  batchSize=params['batchSize'],
                                  learning_rate=params['learning_rate'],
-                                 regularizer_scale = params['regularizer_scale'])
+                                 regularizer_scale = params['regularizer_scale'],
+                                 alpha=params['alpha'],
+                                 neg_rate=params['neg_rate'],
+                                 neg_rel_rate=params['neg_rel_rate'],
+                                 margin=params['margin'])
         mtranse.train(max_epochs=params['max_epochs'])
 
         ent_embeddings_a = mtranse.get_ent_embeddings_A()
@@ -49,19 +54,21 @@ class TestMTransE(unittest.TestCase):
             params['threshold'] = optimal_threshold
             result = pd.MultiIndex.from_tuples([(e1, e2) for (e1, e2, d) in result_prob if d <= optimal_threshold])
             log_quality_results(logger, result, graph.true_pairs, len(graph.entity_pairs), params)
-        except:
+        except Exception as e:
             logger.info("Zero Reults")
+            logger.error(e)
 
         #Log MAP, MRR and Hits@K
         ir_metrics = InformationRetrievalMetrics(result_prob, graph.true_pairs)
-        ir_metrics.log_metrics(logger, params)
+        prec_at_1 = ir_metrics.log_metrics(logger, params)
 
         mtranse.close_tf_session()
-        return max_fscore
+        return (max_fscore, prec_at_1)
 
     def get_default_params(self):
-        return {'learning_rate': 0.1, 'dimension': 80, 'max_epochs': 500,
-                'regularizer_scale' : 0.1, 'batchSize' : 100}
+        return {'learning_rate': 0.1, 'dimension': 128, 'max_epochs': 100, 'alpha' : 5,
+                'regularizer_scale' : 0.1, 'batchSize' : 512, 'margin' : 2, 'neg_rate' : 7,
+                'neg_rel_rate' : 1 }
 
     def test_cora(self):
         self._test_mtranse(Cora, self.get_default_params())
@@ -71,3 +78,44 @@ class TestMTransE(unittest.TestCase):
 
     def test_census(self):
         self._test_mtranse(Census, self.get_default_params())
+
+    def _test_grid_search(self, dataset):
+        learning_rate = [0.1]
+        dimension = [128, 256]
+        max_epochs = [1000]
+        alpha = [5, 10]
+        regularizer_scale = [0.1]
+        batchSize = [1024, 512]
+        margin = [1, 2]
+        neg_rate = [7, 4]
+        neg_rel_rate = [1]
+
+        max_fscore = 0
+        max_prec_at_1 = 0
+        count = 0
+
+        for lr, d, me, a, reg, bs, m, nr, nrr in itertools.product(learning_rate, dimension, \
+                max_epochs, alpha, regularizer_scale, batchSize, margin, neg_rate, neg_rel_rate):
+
+            params = {'learning_rate': lr, 'dimension': d, 'max_epochs': me, 'alpha' : a,
+                'regularizer_scale' : reg, 'batchSize' : bs, 'margin' : m, 'neg_rate' : nr,
+                'neg_rel_rate' : nrr}
+            cur_fscore, cur_prec_at_1 = self._test_mtranse(dataset, params)
+            count = count + 1
+            if max_fscore <= cur_fscore:
+                max_fscore = cur_fscore
+            if max_prec_at_1 <= cur_prec_at_1:
+                max_prec_at_1 = cur_prec_at_1
+
+            logger.info("Ran total %d Tests.", count)
+            logger.info("Max Fscore: %f", max_fscore)
+            logger.info("Max Precision@1: %f", max_prec_at_1)
+
+    def test_grid_cora(self):
+        self._test_grid_search(Cora)
+
+    def test_grid_febrl(self):
+        self._test_grid_search(FEBRl)
+
+    def test_grid_census(self):
+        self._test_grid_search(Census)
