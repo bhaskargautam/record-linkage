@@ -78,10 +78,10 @@ class Test_KR_EAR(unittest.TestCase):
         self._test_kr_ear(Census, self.get_default_params())
 
     def _test_grid_search(self, model):
-        dimension= [128, 256]
-        batchSize= [256, 512]
-        learning_rate= [0.1]
-        margin= [1, 0.1]
+        dimension= [64, 256]
+        batchSize= [32, 128]
+        learning_rate= [0.1, 0.5]
+        margin= [1]
         regularizer_scale = [0.1]
         epochs = [1000]
         neg_rel_rate = [1, 4]
