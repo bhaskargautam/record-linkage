@@ -229,7 +229,7 @@ class FEBRL(object):
         entity = []
         attribute = ['name', 'surname', 'state', 'dob', 'postcode']
         attr_value = []
-        relation = ['same_as']
+        relation = ['same_as', 'not_same_as']
         atriples = []
         rtriples = []
 

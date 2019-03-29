@@ -307,7 +307,7 @@ class Census(object):
 
         entity = []
         attribute = ["name", "surname", "surname2", "yob", "civil", "occupation"]
-        relation = ["same_as"]
+        relation = ["same_as" "not_same_as"]
         atriples = []
         rtriples = []
         attr_value = []

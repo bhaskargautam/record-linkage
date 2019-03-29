@@ -394,6 +394,7 @@ class Cora(object):
         #Add 2 new relations for aligned and non-aligned pairs
         relation.append('same_as')
         alligned_relation_id = len(relation) - 1
+        relation.append('not_same_as')
 
         logger.info("Number of entities: %d", len(entity))
         logger.info("Number of values: %d", len(attr_value))
