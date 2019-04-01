@@ -1,4 +1,5 @@
 import copy
+import itertools
 import pandas as pd
 import unittest
 
@@ -94,14 +95,18 @@ class TestMTransE(unittest.TestCase):
         max_prec_at_1 = 0
         count = 0
 
+        model = dataset()
+        logger = get_logger('RL.Test.MTransE.' + str(model))
+
         for lr, d, me, a, reg, bs, m, nr, nrr in itertools.product(learning_rate, dimension, \
                 max_epochs, alpha, regularizer_scale, batchSize, margin, neg_rate, neg_rel_rate):
 
             params = {'learning_rate': lr, 'dimension': d, 'max_epochs': me, 'alpha' : a,
                 'regularizer_scale' : reg, 'batchSize' : bs, 'margin' : m, 'neg_rate' : nr,
                 'neg_rel_rate' : nrr}
-            cur_fscore, cur_prec_at_1 = self._test_mtranse(dataset, params)
             count = count + 1
+
+            cur_fscore, cur_prec_at_1 = self._test_mtranse(dataset, params)
             if max_fscore <= cur_fscore:
                 max_fscore = cur_fscore
             if max_prec_at_1 <= cur_prec_at_1:
