@@ -36,17 +36,26 @@ class Census(object):
 
     _instance = None
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, census_location=CensusLocation.SANT_FELIU,
+                    train_years = [(1889, 1906), (1930, 1936)],
+                    test_years = [(1910, 1915), (1924, 1930)],
+                    validation_years = [(1906, 1910), (1936, 1940)],
+                    *args, **kwargs):
         if not cls._instance:
             cls._instance = super(Census, cls).__new__(
                                 cls, *args, **kwargs)
-            cls._instance.init(*args, **kwargs)
+            cls._instance.init(census_location, train_years, test_years, \
+                validation_years, *args, **kwargs)
         return cls._instance
 
-    def init(self, census_location=CensusLocation.SANT_FELIU,
-                    train_years = [[1940], [1936]],
-                    test_years = [[1930],[1924]],
-                    validation_years = [[1920], [1915]]):
+    def init(self, census_location, train_years, test_years, validation_years):
+        """
+            Initializer. Create separate dataframes for testing, training and validation.
+            :param census_location: CensusLocation Enum
+            :param train_years: List of pairs of years [(year_a, year_b)..]
+            :param test_years: List of pairs of years [(year_a, year_b)..]
+            :param validation_years: List of pairs of years [(year_a, year_b)..]
+        """
         self.census_location = census_location
         self.field_map = census_field_map[self.census_location]
 
@@ -54,6 +63,7 @@ class Census(object):
         years = list(np.array(train_years).flatten())
         years.extend(list(np.array(test_years).flatten()))
         years.extend(list(np.array(validation_years).flatten()))
+        years = list(set(years))
         logger.info("Reading Census Records for years: %s .....", str(years))
 
         data = load_census(census_location, years=years, filters=None, fields=None)
@@ -62,15 +72,15 @@ class Census(object):
         logger.info("Sample Record: %s", str(data.loc[0]))
 
         logger.info("Available Census Years %s", str(data[year_field].unique()))
-        self.trainDataA = data[data[year_field].isin(train_years[0])]
-        self.trainDataB = data[data[year_field].isin(train_years[1])]
-        self.testDataA = data[data[year_field].isin(test_years[0])]
-        self.testDataB = data[data[year_field].isin(test_years[1])]
-        self.valDataA = data[data[year_field].isin(validation_years[0])]
-        self.valDataB = data[data[year_field].isin(validation_years[1])]
-        logger.info("Train Population: 1940 %s 1936 %s ", str(self.trainDataA.shape), str(self.trainDataB.shape))
-        logger.info("Test Population: 1930 %s 1924 %s ", str(self.testDataA.shape), str(self.testDataB.shape))
-        logger.info("Validation Population: 1920 %s 1915 %s ", str(self.valDataA.shape), str(self.valDataB.shape))
+        self.trainDataA = data[data[year_field].isin([y_a for (y_a, y_b) in train_years])]
+        self.trainDataB = data[data[year_field].isin([y_b for (y_a, y_b) in train_years])]
+        self.testDataA = data[data[year_field].isin([y_a for (y_a, y_b) in test_years])]
+        self.testDataB = data[data[year_field].isin([y_b for (y_a, y_b) in test_years])]
+        self.valDataA = data[data[year_field].isin([y_a for (y_a, y_b) in validation_years])]
+        self.valDataB = data[data[year_field].isin([y_b for (y_a, y_b) in validation_years])]
+        logger.info("Train Population: Dataset A: %s Dataset B %s ", str(self.trainDataA.shape), str(self.trainDataB.shape))
+        logger.info("Test Population: Dataset A %s Dataset B %s ", str(self.testDataA.shape), str(self.testDataB.shape))
+        logger.info("Validation Population: Dataset A %s Dataset B %s ", str(self.valDataA.shape), str(self.valDataB.shape))
 
         #Extract training candidate pairs
         indexer = recordlinkage.Index()
