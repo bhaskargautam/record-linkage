@@ -89,15 +89,17 @@ class Census(object):
         self.candidate_links = indexer.index(self.trainDataA, self.trainDataB)
         logger.info("No. of Candidate Pairs %d", (len(self.candidate_links)))
 
-        #Extarct Training true links (takes time...)
-        true_links = []
+        #Extarct Training true links
+        a = self.trainDataA[self.trainDataA.DNI != '']
+        b = self.trainDataB[self.trainDataB.DNI != '']
+        indexer = recordlinkage.Index()
         dni_field = census_field_map[census_location][CensusFields.DNI]
-        for indexA, indexB in self.candidate_links:
-            if self.trainDataA.loc[indexA][dni_field] == self.trainDataB.loc[indexB][dni_field] and\
-                     self.trainDataB.loc[indexB][dni_field]:
-                true_links.append((indexA, indexB))
-        logger.info("Number of true links: %d", len(true_links))
-        self.true_links = pd.MultiIndex.from_tuples(true_links)
+        indexer.block(dni_field)
+        self.true_links = indexer.index(a, b)
+        logger.info("Number of ALL true links: %d", len(self.true_links))
+        self.true_links = [(a,b) for (a,b) in self.true_links if (a,b) in self.candidate_links]
+        logger.info("Number of true links in Candidate List : %d", len(self.true_links))
+        self.true_links = pd.MultiIndex.from_tuples(self.true_links)
 
         #Extract test candidate pairs
         indexer = recordlinkage.Index()
@@ -105,14 +107,17 @@ class Census(object):
         self.test_links = indexer.index(self.testDataA, self.testDataB)
         logger.info("No. of Test Pairs %d", (len(self.test_links)))
 
-        #Extarct test true links (takes time...)
-        true_test_links = []
-        for indexA, indexB in self.test_links:
-            if self.testDataA.loc[indexA][dni_field] == self.testDataB.loc[indexB][dni_field] and\
-                     self.testDataB.loc[indexB][dni_field]:
-                true_test_links.append((indexA, indexB))
-        logger.info("Number of true test links: %d", len(true_test_links))
-        self.true_test_links = pd.MultiIndex.from_tuples(true_test_links)
+        #Extarct test true links
+        a = self.testDataA[self.testDataA.DNI != '']
+        b = self.testDataB[self.testDataB.DNI != '']
+        indexer = recordlinkage.Index()
+        dni_field = census_field_map[census_location][CensusFields.DNI]
+        indexer.block(dni_field)
+        self.true_test_links = indexer.index(a, b)
+        logger.info("Number of ALL test links: %d", len(self.true_test_links))
+        self.true_test_links = [(a,b) for (a,b) in self.true_test_links if (a,b) in self.test_links]
+        logger.info("Number of test links in TEST Candidate List : %d", len(self.true_test_links))
+        self.true_test_links = pd.MultiIndex.from_tuples(self.true_test_links)
 
         #Extract val candidate pairs
         indexer = recordlinkage.Index()
@@ -120,14 +125,17 @@ class Census(object):
         self.val_links = indexer.index(self.valDataA, self.valDataB)
         logger.info("No. of Validation Pairs %d", (len(self.val_links)))
 
-        #Extarct val true links (takes time...)
-        true_val_links = []
-        for indexA, indexB in self.val_links:
-            if self.valDataA.loc[indexA][dni_field] == self.valDataB.loc[indexB][dni_field] and\
-                     self.valDataB.loc[indexB][dni_field]:
-                true_val_links.append((indexA, indexB))
-        logger.info("Number of true Validation links: %d", len(true_val_links))
-        self.true_val_links = pd.MultiIndex.from_tuples(true_val_links)
+        #Extarct val true links
+        a = self.valDataA[self.valDataA.DNI != '']
+        b = self.valDataB[self.valDataB.DNI != '']
+        indexer = recordlinkage.Index()
+        dni_field = census_field_map[census_location][CensusFields.DNI]
+        indexer.block(dni_field)
+        self.true_val_links = indexer.index(a, b)
+        logger.info("Number of ALL true links: %d", len(self.true_val_links))
+        self.true_val_links = [(a,b) for (a,b) in self.true_val_links if (a,b) in self.val_links]
+        logger.info("Number of true links in Candidate List : %d", len(self.true_val_links))
+        self.true_val_links = pd.MultiIndex.from_tuples(self.true_val_links)
 
     def get_comparision_object(self):
         """
