@@ -93,7 +93,9 @@ class TransE(object):
 
         #Confirgure summary location
         self.merged = tf.summary.merge_all()
-        self.summary_writer = tf.summary.FileWriter(get_tf_summary_file_path(logger), self.sess.graph)
+        self.summary_writer = tf.summary.FileWriter(get_tf_summary_file_path(logger) + '/train', self.sess.graph)
+        self.validation_summary_writer = tf.summary.FileWriter(get_tf_summary_file_path(logger) + '/val',
+                                    self.sess.graph)
 
 
     def _calc(self, h, t, r):
@@ -128,13 +130,19 @@ class TransE(object):
                         }
 
                     if batchend == len(self.triples):
-                        #last batch write summary for tensorboard
+                        #last validation batch write summary for tensorboard
+                        cur_loss, summary = self.sess.run([self.loss, self.merged], feed_dict=feed_dict)
+                        self.validation_summary_writer.add_summary(summary, epoch)
+                    elif i == 0:
+                        #First training batch write summary for tensorboard
                         _, cur_loss, summary = self.sess.run([self.optimizer, self.loss, self.merged], feed_dict=feed_dict)
                         self.summary_writer.add_summary(summary, epoch)
                     else:
                         #train network on batch
                         _, cur_loss = self.sess.run([self.optimizer, self.loss], feed_dict=feed_dict)
 
+                    if type(cur_loss) == list:
+                        cur_loss = cur_loss[0]
                     loss = loss + cur_loss
                 if loss:
                     logger.info("Epoch: %d Loss: %f", epoch, loss)
