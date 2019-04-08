@@ -647,6 +647,163 @@ class Census(object):
         true_pairs = pd.MultiIndex.from_tuples(true_pairs)
         return (entityA, entityB, relationA, relationB, triplesA, triplesB, entity_pairs, prior_pairs, true_pairs)
 
+    def get_veg_model(self, data_type='train'):
+        assert data_type in ['train', 'test', 'val', 'all'], "Invalid Data Type requested. \
+            Allowed values: 'train', 'test', 'val', 'all'"
+
+        relation_value_map = {"same_as" : [], "name" : [], "surname" : [], "surname2" : [],
+                                "yob" : [],  "civil" : [], "occupation" : [], "relation" : []}
+        relation = ["same_as", "name", "surname", "surname2", "yob", "civil", "occupation", "relation"]
+        train_triples = []
+        val_triples = []
+        test_triples = []
+
+        for (true_links, datasetA, datasetB, triples) in [
+            (self.true_links, self.trainDataA, self.trainDataB, train_triples),
+            (self.true_val_links, self.valDataA, self.valDataB, val_triples),
+            (self.true_test_links, self.testDataA, self.testDataB, test_triples)]:
+
+            for (index_a, index_b) in true_links:
+
+                #Load rows in consideration
+                row_a = datasetA.loc[index_a]
+                row_b = datasetB.loc[index_b]
+
+                #Link Normalised First Names
+                field_fname = self.field_map[CensusFields.FIRST_NAME]
+                values = relation_value_map["name"]
+                if row_a[field_fname] in values:
+                    val_index_a = values.index(row_a[field_fname])
+                else:
+                    values.append(row_a[field_fname])
+                    val_index_a = len(values) - 1
+
+                if row_b[field_fname] in values:
+                    val_index_b = values.index(row_b[field_fname])
+                else:
+                    values.append(row_b[field_fname])
+                    val_index_b = len(values) - 1
+
+                if val_index_a != val_index_b:
+                    triples.append((val_index_a, val_index_b, relation.index("name")))
+
+                #Link Normalized surname1
+                field_surname = self.field_map[CensusFields.SURNAME_1]
+                values = relation_value_map["surname"]
+                if row_a[field_surname] in values:
+                    val_index_a = values.index(row_a[field_surname])
+                else:
+                    values.append(row_a[field_surname])
+                    val_index_a = len(values) - 1
+
+                if row_b[field_surname] in values:
+                    val_index_b = values.index(row_b[field_surname])
+                else:
+                    values.append(row_b[field_surname])
+                    val_index_b = len(values) - 1
+
+                if val_index_a != val_index_b:
+                    triples.append((val_index_a, val_index_b, relation.index("surname")))
+
+                #Link Normalized surname2
+                field_surname2 = self.field_map[CensusFields.SURNAME_2]
+                values = relation_value_map["surname2"]
+                if row_a[field_surname2] in values:
+                    val_index_a = values.index(row_a[field_surname2])
+                else:
+                    values.append(row_a[field_surname2])
+                    val_index_a = len(values) - 1
+
+                if row_b[field_surname2] in values:
+                    val_index_b = values.index(row_b[field_surname2])
+                else:
+                    values.append(row_b[field_surname2])
+                    val_index_b = len(values) - 1
+
+                if val_index_a != val_index_b:
+                    triples.append((val_index_a, val_index_b, relation.index("surname2")))
+
+                #Link Year Of Birth
+                field_yob = self.field_map[CensusFields.YOB]
+                values = relation_value_map["yob"]
+                if row_a[field_yob] and row_b[field_yob]:
+                    if row_a[field_yob] in values:
+                        val_index_a = values.index(row_a[field_yob])
+                    else:
+                        values.append(row_a[field_yob])
+                        val_index_a = len(values) - 1
+
+                    if row_b[field_yob] in values:
+                        val_index_b = values.index(row_b[field_yob])
+                    else:
+                        values.append(row_b[field_yob])
+                        val_index_b = len(values) - 1
+
+                    if val_index_a != val_index_b:
+                        triples.append((val_index_a, val_index_b, relation.index("yob")))
+
+                #Link Civil Status
+                field_civil = self.field_map[CensusFields.CIVIL_STATUS]
+                values = relation_value_map["civil"]
+                if row_a[field_civil] in values:
+                    val_index_a = values.index(row_a[field_civil])
+                else:
+                    values.append(row_a[field_civil])
+                    val_index_a = len(values) - 1
+
+                if row_b[field_civil] in values:
+                    val_index_b = values.index(row_b[field_civil])
+                else:
+                    values.append(row_b[field_civil])
+                    val_index_b = len(values) - 1
+
+                if val_index_a != val_index_b:
+                    triples.append((val_index_a, val_index_b, relation.index("civil")))
+
+                #Link Normalized occupation
+                field_occupation = self.field_map[CensusFields.OCCUPATION]
+                values = relation_value_map["occupation"]
+                if row_a[field_occupation] in values:
+                    val_index_a = values.index(row_a[field_occupation])
+                else:
+                    values.append(row_a[field_occupation])
+                    val_index_a = len(values) - 1
+
+                if row_b[field_occupation] in values:
+                    val_index_b = values.index(row_b[field_occupation])
+                else:
+                    values.append(row_b[field_occupation])
+                    val_index_b = len(values) - 1
+
+                if val_index_a != val_index_b:
+                    triples.append((val_index_a, val_index_b, relation.index("occupation")))
+
+                #Link Normalized relationship with family head
+                field_relation = self.field_map[CensusFields.RELATION]
+                values = relation_value_map["relation"]
+                if row_a[field_relation] in values:
+                    val_index_a = values.index(row_a[field_relation])
+                else:
+                    values.append(row_a[field_relation])
+                    val_index_a = len(values) - 1
+
+                if row_b[field_relation] in values:
+                    val_index_b = values.index(row_b[field_relation])
+                else:
+                    values.append(row_b[field_relation])
+                    val_index_b = len(values) - 1
+
+                if val_index_a != val_index_b:
+                    triples.append((val_index_a, val_index_b, relation.index("relation")))
+
+        logger.info("Number of Values: %s", str([len(relation_value_map[r]) for r in relation]))
+        logger.info("All relations: %s", str(relation))
+        logger.info("Number of Train Triples: %d", len(train_triples))
+        logger.info("Number of Val Triples: %d", len(val_triples))
+        logger.info("Number of Test Triples: %d", len(test_triples))
+
+        return (relation_value_map, relation, train_triples, val_triples, test_triples)
+
     def get_entity_information(self, entity_name):
         try:
             ent_id = entity_name.split('_')[0]

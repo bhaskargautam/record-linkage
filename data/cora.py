@@ -555,6 +555,55 @@ class Cora(object):
         true_pairs = pd.MultiIndex.from_tuples(true_pairs)
         return (entityA, entityB, relationA, relationB, triplesA, triplesB, entity_pairs, prior_pairs, true_pairs)
 
+    def get_veg_model(self, data_type='train'):
+        assert data_type in ['train', 'test', 'val', 'all'], "Invalid Data Type requested. \
+            Allowed values: 'train', 'test', 'val', 'all'"
+
+        relation_value_map = {'author': [], 'publisher': [], 'date': [], 'title': [], 'journal': [],
+                                'volume': [], 'pages': [], 'address': [] }
+        relation = ['author', 'publisher', 'date', 'title', 'journal', 'volume', 'pages', 'address']
+        train_triples = []
+        val_triples = []
+        test_triples = []
+
+        for (true_links, datasetA, datasetB, triples) in [
+            (self.true_links, self.trainDataA, self.trainDataB, train_triples),
+            (self.true_val_links, self.valDataA, self.valDataB, val_triples),
+            (self.true_test_links, self.testDataA, self.testDataB, test_triples)]:
+
+            for (index_a, index_b) in true_links:
+                row_a = datasetA.loc[index_a]
+                row_b = datasetB.loc[index_b]
+
+                for rel_index in range(len(relation)):
+                    rel = relation[rel_index]
+                    values = relation_value_map[rel]
+
+                    if row_a[rel].strip() and row_b[rel].strip():
+                        if row_a[rel] in values:
+                            val_index_a = values.index(row_a[rel])
+                        else:
+                            values.append(row_a[rel])
+                            val_index_a = len(values) - 1
+
+                        if row_b[rel] in values:
+                            val_index_b = values.index(row_b[rel])
+                        else:
+                            values.append(row_b[rel])
+                            val_index_b = len(values) - 1
+
+                        if val_index_a != val_index_b:
+                            triples.append((val_index_a, val_index_b, rel_index))
+
+
+        logger.info("Number of Values: %d", str([len(relation_value_map[r]) for r in relation]))
+        logger.info("Number of relations: %d", len(relation))
+        logger.info("Number of Train Triples: %d", len(train_triples))
+        logger.info("Number of Val Triples: %d", len(val_triples))
+        logger.info("Number of Test Triples: %d", len(test_triples))
+
+        return (relation_value_map, relation, train_triples, val_triples, test_triples)
+
     def get_entity_information(self, entity_name):
         try:
             ent_id = entity_name.split('_')[0][4:]

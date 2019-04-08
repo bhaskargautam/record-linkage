@@ -8,6 +8,7 @@ TRANSH_THRESHOLD_CORA = 0.25
 BASE_ER_GRAPH_FOLDER = 'data/er_graph/'
 BASE_EAR_GRAPH_FOLDER = 'data/ear_graph/'
 BASE_ERER_GRAPH_FOLDER = 'data/erer_graph/'
+BASE_VEG_GRAPH_FOLDER = 'data/veg_graph/'
 BASE_OUTPUT_FOLDER = 'out/'
 DEFAULT_LOG_FILE = 'test.log'
 DEFAULT_RESULT_LOG_FILE = 'result.log'

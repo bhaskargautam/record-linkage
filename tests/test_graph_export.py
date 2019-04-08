@@ -7,6 +7,7 @@ from data.census import Census
 from ER.model import Graph_ER
 from EAR.model import Graph_EAR
 from ERER.model import Graph_ERER
+from VEG.model import Graph_VEG
 
 class TestGraphExport(unittest.TestCase):
 
@@ -76,3 +77,24 @@ class TestGraphExport(unittest.TestCase):
 
     def test_erer_census(self):
         self._test_erer_graph_export(Census)
+
+    def _test_veg_graph_export(self, dataset):
+        model = dataset()
+        rel_value_map, relation, train_triples, val_triples, test_triples = model.get_veg_model()
+        graph = Graph_VEG(dataset, rebuild=True)
+        v, r, tr, va, te = graph.load_kg_veg_model()
+        for rel in rel_value_map:
+            self.assertEqual(len(v[rel]), len(rel_value_map[rel]))
+        self.assertEqual(len(r), len(relation))
+        self.assertEqual(len(tr), len(train_triples))
+        self.assertEqual(len(va), len(val_triples))
+        self.assertEqual(len(te), len(test_triples))
+
+    def test_veg_cora(self):
+        self._test_veg_graph_export(Cora)
+
+    def test_veg_febrl(self):
+        self._test_veg_graph_export(FEBRL)
+
+    def test_veg_census(self):
+        self._test_veg_graph_export(Census)
