@@ -7,6 +7,7 @@ import recordlinkage
 import os
 import pandas as pd
 import sys
+import timeit
 
 from logging.handlers import RotatingFileHandler
 
@@ -192,9 +193,10 @@ def get_optimal_threshold(result_prob, true_pairs, min_threshold=0.1, max_thresh
 class InformationRetrievalMetrics(object):
 
     def __init__(self, result_prob, true_pairs):
+        begin_time = timeit.default_timer()
         self.logger = get_logger("RL.IR_METRICS.")
         self.result_prob = sorted(result_prob, key=(lambda x: x[2]))
-        self.query_result_mapping = {}
+        self.query_result_mapping = {} #Maps entity with its true links
         for e1, e2 in true_pairs:
             if e1 in self.query_result_mapping:
                 self.query_result_mapping[e1].append(e2)
@@ -204,12 +206,19 @@ class InformationRetrievalMetrics(object):
         for e1 in self.query_result_mapping:
             self.query_result_mapping[e1] = set(self.query_result_mapping[e1])
 
+        self.query_prediction_mapping = {} #Maps entities to predicted links
+        for e1 in self.query_result_mapping:
+            self.query_prediction_mapping[e1] = [b for (a, b, d) in self.result_prob if a == e1]
+
+        self.logger.info("Initilized IR Metrics in %s. #Queries: %d", \
+            (timeit.default_timer() - begin_time), len(self.query_result_mapping.keys()))
+
 
     def get_mean_precisison_at_k(self, k=1):
         total_precision = 0.0
         for e1 in self.query_result_mapping:
-            results = filter(lambda r: r[0] == e1, self.result_prob)
-            true_results = filter(lambda r: r[1] in self.query_result_mapping[e1], results[:k])
+            results = self.query_prediction_mapping[e1]
+            true_results = [1 for e2 in results[:k] if e2 in self.query_result_mapping[e1]]
             precision = len(true_results) / float(k)
             total_precision = total_precision + precision
             self.logger.debug("e1: %d, P: %f", e1, precision)
@@ -218,12 +227,12 @@ class InformationRetrievalMetrics(object):
     def get_mean_average_precision(self):
         average_precision = 0.0
         for e1 in self.query_result_mapping:
-            results = filter(lambda r: r[0] == e1, self.result_prob)
+            results = self.query_prediction_mapping[e1]
 
             true_count = 0
             total_precision = 0.0
             for i in range(0, len(results)):
-                if results[i][1] in self.query_result_mapping[e1]:
+                if results[i] in self.query_result_mapping[e1]:
                     true_count = true_count + 1
                     total_precision = total_precision + float(true_count)/(i+1)
 
@@ -236,10 +245,10 @@ class InformationRetrievalMetrics(object):
     def get_mean_reciprocal_rank(self):
         reciprocal_rank_sum = 0.0
         for e1 in self.query_result_mapping:
-            results = filter(lambda r: r[0] == e1, self.result_prob)
+            results = self.query_prediction_mapping[e1]
 
             for i in range(0, len(results)):
-                if results[i][1] in self.query_result_mapping[e1]:
+                if results[i] in self.query_result_mapping[e1]:
                     reciprocal_rank_sum = reciprocal_rank_sum + (1.0/(i + 1))
                     break
 
