@@ -126,3 +126,82 @@ class TestCensusRL(unittest.TestCase):
     def get_default_params(self):
         return {'learning_rate': 0.1, 'margin': 2, 'dimension': 128, 'epochs': 1000,
                 'regularizer_scale' : 0.1, 'batchSize' : 1024, 'neg_rate' : 8, 'neg_rel_rate': 2}
+
+
+    def test_ecm(self):
+        logger = get_logger('RL.Test.ECMClassifier.Census')
+
+        census = Census()
+
+        compare_cl = census.get_comparision_object()
+        features = compare_cl.compute(census.candidate_links, census.trainDataA, census.trainDataB)
+        logger.info("Train Features %s", str(features.describe()))
+
+        # Train ECM Classifier
+        logrg = recordlinkage.ECMClassifier()
+        logrg.fit(features)
+
+        result = logrg.predict(features)
+        log_quality_results(logger, result, census.true_links, len(census.candidate_links))
+
+        #Validate the classifier
+        compare_cl = census.get_comparision_object()
+        features = compare_cl.compute(census.val_links, census.valDataA, census.valDataB)
+        logger.info("Validation Features %s", str(features.describe()))
+
+        result = logrg.predict(features)
+        log_quality_results(logger, result, census.true_val_links, len(census.val_links))
+
+
+        #Test the classifier
+        compare_cl = census.get_comparision_object()
+        features = compare_cl.compute(census.test_links, census.testDataA, census.testDataB)
+        logger.info("Test Features %s", str(features.describe()))
+
+        result = logrg.predict(features)
+        log_quality_results(logger, result, census.true_test_links, len(census.test_links))
+
+        #Log IR Stats: MRR, MAP, MP@K
+        prob_series = logrg.prob(features)
+        prob = [(1 - p) for p in prob_series.tolist()]
+        result_prob = [(census.test_links[i][0], census.test_links[i][1], prob[i]) for i in range(0, len(prob))]
+        ir_metrics = InformationRetrievalMetrics(result_prob, census.true_test_links)
+        ir_metrics.log_metrics(logger)
+
+    def test_logistic(self):
+        logger = get_logger('RL.Test.LogisticRegression.Census')
+
+        census = Census()
+
+        compare_cl = census.get_comparision_object()
+        features = compare_cl.compute(census.candidate_links, census.trainDataA, census.trainDataB)
+        logger.info("Train Features %s", str(features.describe()))
+
+        # Train ECM Classifier
+        logrg = recordlinkage.LogisticRegressionClassifier()
+        logrg.fit(features, census.true_links)
+
+        result = logrg.predict(features)
+        log_quality_results(logger, result, census.true_links, len(census.candidate_links))
+
+        #Validate the classifier
+        compare_cl = census.get_comparision_object()
+        features = compare_cl.compute(census.val_links, census.valDataA, census.valDataB)
+        logger.info("Validation Features %s", str(features.describe()))
+        result = logrg.predict(features)
+        log_quality_results(logger, result, census.true_val_links, len(census.val_links))
+
+        #Test the classifier
+        compare_cl = census.get_comparision_object()
+        features = compare_cl.compute(census.test_links, census.testDataA, census.testDataB)
+        logger.info("Test Features %s", str(features.describe()))
+
+        result = logrg.predict(features)
+        log_quality_results(logger, result, census.true_test_links, len(census.test_links))
+
+        #Log IR Stats: MRR, MAP, MP@K
+        prob_series = logrg.prob(features)
+        prob = [(1 - p) for p in prob_series.tolist()]
+        result_prob = [(census.test_links[i][0], census.test_links[i][1], prob[i]) for i in range(0, len(prob))]
+        ir_metrics = InformationRetrievalMetrics(result_prob, census.true_test_links)
+        ir_metrics.log_metrics(logger)
