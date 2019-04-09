@@ -74,11 +74,13 @@ class TestCensusRL(unittest.TestCase):
                         val_index_a = graph.relation_value_map[rel].index(val_a)
                     except ValueError:
                         missing_values.append(val_a)
+                        distance = distance + 1
                         continue
                     try:
                         val_index_b = graph.relation_value_map[rel].index(val_b)
                     except ValueError:
                         missing_values.append(val_b)
+                        distance = distance + 1
                         continue
                     rel_index = graph.relation.index(field_relation_map[f])
 
@@ -124,8 +126,8 @@ class TestCensusRL(unittest.TestCase):
         return (max_fscore, precison_at_1)
 
     def get_default_params(self):
-        return {'learning_rate': 0.1, 'margin': 2, 'dimension': 128, 'epochs': 1000,
-                'regularizer_scale' : 0.1, 'batchSize' : 1024, 'neg_rate' : 8, 'neg_rel_rate': 2}
+        return {'learning_rate': 0.1, 'margin': 2, 'dimension': 256, 'epochs': 1000,
+                'regularizer_scale' : 0.1, 'batchSize' : 128, 'neg_rate' : 8, 'neg_rel_rate': 2}
 
 
     def test_ecm(self):
