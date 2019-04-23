@@ -805,6 +805,12 @@ class Census(object):
         return (relation_value_map, relation, train_triples, val_triples, test_triples)
 
     def get_entity_information(self, entity_name):
+        """
+            Returns the record row from the base dataset.
+            ID_INDIVIDUAL is considered as the record_id for Census Dataset.
+            :param entity_name: Record Identifer of form .+_<record_id>
+            :return str: tab separated info about individual
+        """
         try:
             ent_id = entity_name.split('_')[0]
         except Exception as e:
@@ -815,10 +821,21 @@ class Census(object):
         field_individual_id = self.field_map[CensusFields.ID_INDIVIDUAL]
         assert field_individual_id is not None, "Individual ID Field is None."
 
-        for dataset in [self.trainDataA, self.trainDataB, self.testDataA, self.testDataB]:
+        for dataset in [self.trainDataA, self.trainDataB,
+                        self.valDataA, self.valDataB,
+                        self.testDataA, self.testDataB]:
             e = dataset[dataset[field_individual_id] == int(ent_id)]
             if len(e):
-                return e.iloc[0]
+                record = e.iloc[0]
+                return "\t".join([str(unicode(record[self.field_map[CensusFields.FIRST_NAME]]).encode('utf-8', 'ignore')),
+                                str(unicode(record[self.field_map[CensusFields.SURNAME_1]]).encode('utf-8', 'ignore')),
+                                str(unicode(record[self.field_map[CensusFields.SURNAME_2]]).encode('utf-8', 'ignore')),
+                                str(unicode(record[self.field_map[CensusFields.ID_INDIVIDUAL]]).encode('utf-8', 'ignore')),
+                                str(unicode(record[self.field_map[CensusFields.DNI]]).encode('utf-8', 'ignore')),
+                                str(unicode(record[self.field_map[CensusFields.YOB]]).encode('utf-8', 'ignore')),
+                                str(unicode(record[self.field_map[CensusFields.CIVIL_STATUS]]).encode('utf-8', 'ignore')),
+                                str(unicode(record[self.field_map[CensusFields.RELATION]]).encode('utf-8', 'ignore')),
+                                str(unicode(record[self.field_map[CensusFields.OCCUPATION]]).encode('utf-8', 'ignore'))])
         return None
 
 

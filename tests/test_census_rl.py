@@ -7,13 +7,14 @@ import unittest
 
 from common import (
     export_embeddings,
+    export_false_negatives,
     export_result_prob,
     get_optimal_threshold,
     get_logger,
     InformationRetrievalMetrics,
     log_quality_results,
     sigmoid)
-from data.base_census import CensusFields
+from data.base_census import CensusFields, census_field_map, CensusLocation
 from data.census import Census
 from VEG.rltranse import RLTransE
 from VEG.model import Graph_VEG
@@ -58,8 +59,6 @@ class TestCensusRL(unittest.TestCase):
 
         result_prob = []
         missing_values = []
-        entity_A = []
-        entity_A =[]
         for (a, b) in c.test_links:
             row_a = c.testDataA.loc[a]
             row_b = c.testDataB.loc[b]
@@ -104,12 +103,13 @@ class TestCensusRL(unittest.TestCase):
                 embeddings.extend(value_embeddings[rel][:val_count])
 
             #Write Embeddings to file
-            export_embeddings('veg', str(c), 'RLTransE', entities, embeddings)
+            export_embeddings('veg', str(c), 'RLTransE_val', entities, embeddings)
+            export_embeddings('veg', str(c), 'RLTransE_rel', graph.relation, relation_embeddings)
         except Exception as e:
             logger.error("Failed to export embeddings")
             logger.error(e)
-        #export_result_prob(Census, 'veg', str(c), 'RLTransE', graph.values, result_prob, c.true_test_links)
-        optimal_threshold, max_fscore = get_optimal_threshold(result_prob, c.true_test_links, max_threshold=3.0)
+
+        optimal_threshold, max_fscore = get_optimal_threshold(result_prob, c.true_test_links, max_threshold=3.0, step=0.02)
 
         try:
             params['threshold'] = optimal_threshold
@@ -123,6 +123,33 @@ class TestCensusRL(unittest.TestCase):
         precison_at_1 = ir_metrics.log_metrics(logger, params)
 
         transe.close_tf_session()
+
+        #Export False Positives and result porobabilities
+        get_entity_name = lambda c, d, i: "_".join([
+                                str(d.iloc[i][c.field_map[CensusFields.ID_INDIVIDUAL]]),
+                                str(d.iloc[i][c.field_map[CensusFields.DNI]])])
+        get_entity_name_loc = lambda c, d, i: "_".join([
+                                str(d.loc[i][c.field_map[CensusFields.ID_INDIVIDUAL]]),
+                                str(d.loc[i][c.field_map[CensusFields.DNI]])])
+        entitiesA = [get_entity_name(c, c.testDataA, i)
+                        for i in range(int(c.testDataA.shape[0]))]
+        entitiesB = [get_entity_name(c, c.testDataB, i)
+                        for i in range(int(c.testDataB.shape[0]))]
+        result_prob = [(entitiesA.index(get_entity_name_loc(c, c.testDataA, int(a))),
+                        entitiesB.index(get_entity_name_loc(c, c.testDataB, int(b))),
+                        p) for (a, b, p) in result_prob]
+        true_links = [(entitiesA.index(get_entity_name_loc(c, c.testDataA, int(a))),
+                        entitiesB.index(get_entity_name_loc(c, c.testDataB, int(b))))
+                        for (a, b) in c.true_test_links]
+        export_result_prob(Census, 'veg', 'census', 'rltranse', entitiesA, result_prob,
+                                true_links, entitiesB)
+
+        result = [(entitiesA.index(get_entity_name_loc(c, c.testDataA, int(a))),
+                    entitiesB.index(get_entity_name_loc(c, c.testDataB, int(b))))
+                    for (a, b) in result]
+        export_false_negatives(Census, 'veg', 'census', 'rltranse', entitiesA, result_prob,
+                                true_links, result, entitiesB)
+
         return (max_fscore, precison_at_1)
 
     def get_default_params(self):
@@ -154,7 +181,6 @@ class TestCensusRL(unittest.TestCase):
         result = logrg.predict(features)
         log_quality_results(logger, result, census.true_val_links, len(census.val_links))
 
-
         #Test the classifier
         compare_cl = census.get_comparision_object()
         features = compare_cl.compute(census.test_links, census.testDataA, census.testDataB)
@@ -169,6 +195,32 @@ class TestCensusRL(unittest.TestCase):
         result_prob = [(census.test_links[i][0], census.test_links[i][1], prob[i]) for i in range(0, len(prob))]
         ir_metrics = InformationRetrievalMetrics(result_prob, census.true_test_links)
         ir_metrics.log_metrics(logger)
+
+        #Export False Positives and result porobabilities
+        get_entity_name = lambda c, d, i: "_".join([
+                                str(d.iloc[i][c.field_map[CensusFields.ID_INDIVIDUAL]]),
+                                str(d.iloc[i][c.field_map[CensusFields.DNI]])])
+        get_entity_name_loc = lambda c, d, i: "_".join([
+                                str(d.loc[i][c.field_map[CensusFields.ID_INDIVIDUAL]]),
+                                str(d.loc[i][c.field_map[CensusFields.DNI]])])
+        entitiesA = [get_entity_name(census, census.testDataA, i)
+                        for i in range(int(census.testDataA.shape[0]))]
+        entitiesB = [get_entity_name(census, census.testDataB, i)
+                        for i in range(int(census.testDataB.shape[0]))]
+        result_prob = [(entitiesA.index(get_entity_name_loc(census, census.testDataA, int(a))),
+                        entitiesB.index(get_entity_name_loc(census, census.testDataB, int(b))),
+                        p) for (a, b, p) in result_prob]
+        true_links = [(entitiesA.index(get_entity_name_loc(census, census.testDataA, int(a))),
+                        entitiesB.index(get_entity_name_loc(census, census.testDataB, int(b))))
+                        for (a, b) in census.true_test_links]
+        export_result_prob(Census, 'ECM', 'census', 'ecm', entitiesA, result_prob,
+                                true_links, entitiesB)
+
+        result = [(entitiesA.index(get_entity_name_loc(census, census.testDataA, int(a))),
+                    entitiesB.index(get_entity_name_loc(census, census.testDataB, int(b))))
+                    for (a, b) in result]
+        export_false_negatives(Census, 'ECM', 'census', 'ecm', entitiesA, result_prob,
+                                true_links, result, entitiesB)
 
     def test_logistic(self):
         logger = get_logger('RL.Test.LogisticRegression.Census')
@@ -207,3 +259,29 @@ class TestCensusRL(unittest.TestCase):
         result_prob = [(census.test_links[i][0], census.test_links[i][1], prob[i]) for i in range(0, len(prob))]
         ir_metrics = InformationRetrievalMetrics(result_prob, census.true_test_links)
         ir_metrics.log_metrics(logger)
+
+        #Export False Positives and result porobabilities
+        get_entity_name = lambda c, d, i: "_".join([
+                                str(d.iloc[i][c.field_map[CensusFields.ID_INDIVIDUAL]]),
+                                str(d.iloc[i][c.field_map[CensusFields.DNI]])])
+        get_entity_name_loc = lambda c, d, i: "_".join([
+                                str(d.loc[i][c.field_map[CensusFields.ID_INDIVIDUAL]]),
+                                str(d.loc[i][c.field_map[CensusFields.DNI]])])
+        entitiesA = [get_entity_name(census, census.testDataA, i)
+                        for i in range(int(census.testDataA.shape[0]))]
+        entitiesB = [get_entity_name(census, census.testDataB, i)
+                        for i in range(int(census.testDataB.shape[0]))]
+        result_prob = [(entitiesA.index(get_entity_name_loc(census, census.testDataA, int(a))),
+                        entitiesB.index(get_entity_name_loc(census, census.testDataB, int(b))),
+                        p) for (a, b, p) in result_prob]
+        true_links = [(entitiesA.index(get_entity_name_loc(census, census.testDataA, int(a))),
+                        entitiesB.index(get_entity_name_loc(census, census.testDataB, int(b))))
+                        for (a, b) in census.true_test_links]
+        export_result_prob(Census, 'LogisticRegression', 'census', 'logistic', entitiesA,
+                                result_prob, true_links, entitiesB)
+
+        result = [(entitiesA.index(get_entity_name_loc(census, census.testDataA, int(a))),
+                    entitiesB.index(get_entity_name_loc(census, census.testDataB, int(b))))
+                    for (a, b) in result]
+        export_false_negatives(Census, 'LogisticRegression', 'census', 'logistic', entitiesA,
+                        result_prob, true_links, result, entitiesB)
