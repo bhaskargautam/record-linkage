@@ -149,7 +149,7 @@ def export_embeddings(graph_type, model, method, entity, ent_emebedding):
 def export_result_prob(dataset, graph_type, dataset_prefix, method,
                             entity, result_prob, true_pairs, entity2=None):
     """
-        Exports False Positives and Probabilities to output folder.
+        Exports Result Probabilities to output folder.
         :param dataset: Model Class to export (Census, Cora or FEBRL)
         :param graph_type: Folder Name to output the results.
         :param dataset_prefix: Prefix for result files
@@ -164,21 +164,9 @@ def export_result_prob(dataset, graph_type, dataset_prefix, method,
     base_file_name = base_file_name + str(dataset_prefix) + "_" + str(method)
     entity2 = entity2 if entity2 else entity
     result_prob = sorted(result_prob, key=lambda x: x[2])
-    false_positives = []
     with open(base_file_name + "_result_prob.tsv", "w+") as f:
         for (e1, e2, d) in result_prob:
             f.write("%s\t%s\t%f\t%s\n" % (entity[int(e1)], entity2[int(e2)], d, (e1, e2) in true_pairs))
-            if (e1, e2) not in true_pairs and \
-                    len(false_positives) < config.MAX_FALSE_POSITIVE_TO_LOG:
-                false_positives.append((e1, e2, d))
-
-    #Log full information about top False Positives
-    model = dataset()
-    with open(base_file_name + "_false_positives.txt", "w+") as f:
-        for (e1, e2, d) in false_positives:
-            f.write("\nRecord A:\t%s\n" % str(model.get_entity_information(entity[int(e1)])))
-            f.write("Record B:\t%s\n" % str(model.get_entity_information(entity2[int(e2)])))
-            f.write("Prob: %.2f" % d)
 
     return True
 
@@ -211,6 +199,42 @@ def export_false_negatives(dataset, graph_type, dataset_prefix, method,
     model = dataset()
     with open(base_file_name + "_false_negatives.txt", "w+") as f:
         for (e1, e2, d) in false_negatives:
+            f.write("\nRecord A:\t%s\n" % str(model.get_entity_information(entity[int(e1)])))
+            f.write("Record B:\t%s\n" % str(model.get_entity_information(entity2[int(e2)])))
+            f.write("Prob: %.2f" % d)
+
+    return True
+
+
+def export_false_positives(dataset, graph_type, dataset_prefix, method,
+                            entity, result_prob, true_pairs, result, entity2=None):
+    """
+        Exports False Negatives to output folder.
+        :param dataset: Model Class to export (Census, Cora or FEBRL)
+        :param graph_type: Folder Name to output the results.
+        :param dataset_prefix: Prefix for result files
+        :param method: Algorithm Name used to compute results
+        :param entity: List of labels for records from dataset A
+        :param result_prob: List of triplets (record_id_a, record_id_b, prob)
+        :param true_pairs: List of pairs (record_id_a, record_id_b) with same DNI
+        :param result: List of pairs (record_id_a, record_id_b) linked by the algo
+        :param entity2: List of labels from dataset B, Default None if same as B = A.
+    """
+    base_file_name = config.BASE_OUTPUT_FOLDER + str(graph_type) +  "/"
+    create_folder_if_missing(base_file_name)
+    base_file_name = base_file_name + str(dataset_prefix) + "_" + str(method)
+    entity2 = entity2 if entity2 else entity
+    result_prob = sorted(result_prob, key=lambda x: x[2])
+    false_positives = []
+    for (e1, e2, d) in result_prob:
+        if (e1, e2) not in true_pairs and (e1, e2) in result and\
+                    len(false_positives) < config.MAX_FALSE_POSITIVE_TO_LOG:
+                false_positives.append((e1, e2, d))
+
+    #Log full information about top False Positives
+    model = dataset()
+    with open(base_file_name + "_false_positives.txt", "w+") as f:
+        for (e1, e2, d) in false_positives:
             f.write("\nRecord A:\t%s\n" % str(model.get_entity_information(entity[int(e1)])))
             f.write("Record B:\t%s\n" % str(model.get_entity_information(entity2[int(e2)])))
             f.write("Prob: %.2f" % d)
