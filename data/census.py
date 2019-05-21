@@ -838,6 +838,10 @@ class Census(object):
                                 str(unicode(record[self.field_map[CensusFields.OCCUPATION]]).encode('utf-8', 'ignore'))])
         return None
 
+    def get_entity_names(self, dataset):
+        return ["_".join([str(dataset.iloc[i][self.field_map[CensusFields.ID_INDIVIDUAL]]),
+                            str(dataset.iloc[i][self.field_map[CensusFields.DNI]])])
+                            for i in range(len(dataset))]
 
     def __str__(self):
         return config.CENSUS_FILE_PREFIX

@@ -607,7 +607,7 @@ class Cora(object):
     def get_entity_information(self, entity_name):
         try:
             ent_id = entity_name.split('_')[0][4:]
-            logger.info("Searching for entity id: %s", ent_id)
+            logger.debug("Searching for entity id: %s", ent_id)
         except Exception as e:
             logger.error(e)
             logger.error("Failed to get entity id for %s", str(entity_name))
@@ -618,6 +618,9 @@ class Cora(object):
             if len(e):
                 return e[0]
         return None
+
+    def get_entity_names(self, dataset):
+        return ['cora' + e[1]['id'] for e in dataset.iterrows()]
 
     def __str__(self):
         return config.CORA_FILE_PREFIX

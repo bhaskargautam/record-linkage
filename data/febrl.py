@@ -468,5 +468,8 @@ class FEBRL(object):
                 return e[0]
         return None
 
+    def get_entity_names(self, dataset):
+        return [e[0] for e in dataset.iterrows()]
+
     def __str__(self):
         return config.FEBRL_FILE_PREFIX
