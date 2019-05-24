@@ -9,6 +9,7 @@ from common import (
     export_embeddings,
     export_false_positives,
     export_false_negatives,
+    export_human_readable_results,
     export_result_prob,
     get_optimal_threshold,
     get_logger,
@@ -229,6 +230,13 @@ class TestCensusRL(unittest.TestCase):
         export_false_positives(Census, 'ECM', 'census', 'ecm', entitiesA, result_prob,
                                 true_links, result, entitiesB)
 
+        weights = [logrg.weights['normalizedName'][1], logrg.weights['normalizedSurname1'][1],
+            logrg.weights['yearOfBirth'][1], logrg.weights['civilStatus'][1],
+            logrg.weights['normalizedRelation'][1], logrg.weights['normalizedOccupation'][1]]
+        export_human_readable_results(Census, 'ECM', 'census', 'ecm', entitiesA,
+                                result_prob, weights, result, entitiesB)
+
+
     def test_logistic(self):
         logger = get_logger('RL.Test.LogisticRegression.Census')
 
@@ -295,3 +303,6 @@ class TestCensusRL(unittest.TestCase):
                         result_prob, true_links, result, entitiesB)
         export_false_positives(Census, 'LogisticRegression', 'census', 'logistic', entitiesA,
                         result_prob, true_links, result, entitiesB)
+
+        export_human_readable_results(Census, 'LogisticRegression', 'census', 'logistic',
+                        entitiesA, result_prob, logrg.coefficients, result, entitiesB)

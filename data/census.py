@@ -827,21 +827,17 @@ class Census(object):
             e = dataset[dataset[field_individual_id] == int(ent_id)]
             if len(e):
                 record = e.iloc[0]
-                return "\t".join([str(unicode(record[self.field_map[CensusFields.FIRST_NAME]]).encode('utf-8', 'ignore')),
-                                str(unicode(record[self.field_map[CensusFields.SURNAME_1]]).encode('utf-8', 'ignore')),
-                                str(unicode(record[self.field_map[CensusFields.SURNAME_2]]).encode('utf-8', 'ignore')),
-                                str(unicode(record[self.field_map[CensusFields.ID_INDIVIDUAL]]).encode('utf-8', 'ignore')),
-                                str(unicode(record[self.field_map[CensusFields.DNI]]).encode('utf-8', 'ignore')),
-                                str(unicode(record[self.field_map[CensusFields.YOB]]).encode('utf-8', 'ignore')),
-                                str(unicode(record[self.field_map[CensusFields.CIVIL_STATUS]]).encode('utf-8', 'ignore')),
-                                str(unicode(record[self.field_map[CensusFields.RELATION]]).encode('utf-8', 'ignore')),
-                                str(unicode(record[self.field_map[CensusFields.OCCUPATION]]).encode('utf-8', 'ignore'))])
+                return "\t".join([str(unicode(field).encode('utf-8', 'ignore')) for field in record])
+
         return None
 
     def get_entity_names(self, dataset):
         return ["_".join([str(dataset.iloc[i][self.field_map[CensusFields.ID_INDIVIDUAL]]),
                             str(dataset.iloc[i][self.field_map[CensusFields.DNI]])])
                             for i in range(len(dataset))]
+
+    def get_weight_header(self):
+        return  ["name", "surname1", "yob", "civil", "relation", "occupation", "probability"]
 
     def __str__(self):
         return config.CENSUS_FILE_PREFIX

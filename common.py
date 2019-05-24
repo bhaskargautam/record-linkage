@@ -165,6 +165,7 @@ def export_result_prob(dataset, graph_type, dataset_prefix, method,
     entity2 = entity2 if entity2 else entity
     result_prob = sorted(result_prob, key=lambda x: x[2])
     with open(base_file_name + "_result_prob.tsv", "w+") as f:
+        f.write("Entity A\tEntity B\tProbability\tGround Truth\n")
         for (e1, e2, d) in result_prob:
             f.write("%s\t%s\t%f\t%s\n" % (entity[int(e1)], entity2[int(e2)], d, (e1, e2) in true_pairs))
 
@@ -197,7 +198,9 @@ def export_false_negatives(dataset, graph_type, dataset_prefix, method,
 
     #Log full information about top False Positives
     model = dataset()
+    info_header = "\t".join([field for field in model.trainDataA])
     with open(base_file_name + "_false_negatives.txt", "w+") as f:
+        f.write("\t%s\n" % str(info_header))
         for (e1, e2, d) in false_negatives:
             f.write("\nRecord A:\t%s\n" % str(model.get_entity_information(entity[int(e1)])))
             f.write("Record B:\t%s\n" % str(model.get_entity_information(entity2[int(e2)])))
@@ -233,7 +236,9 @@ def export_false_positives(dataset, graph_type, dataset_prefix, method,
 
     #Log full information about top False Positives
     model = dataset()
+    info_header = "\t".join([field for field in model.trainDataA])
     with open(base_file_name + "_false_positives.txt", "w+") as f:
+        f.write("\t%s\n" % str(info_header))
         for (e1, e2, d) in false_positives:
             f.write("\nRecord A:\t%s\n" % str(model.get_entity_information(entity[int(e1)])))
             f.write("Record B:\t%s\n" % str(model.get_entity_information(entity2[int(e2)])))
@@ -353,3 +358,41 @@ class InformationRetrievalMetrics(object):
 def get_tf_summary_file_path(logger):
     return config.TENSORFLOW_SUMMARY_FOLDER + logger.name + \
             str(datetime.datetime.now().strftime("%d_%m_%H_%M"))
+
+def export_human_readable_results(dataset, graph_type, dataset_prefix, method,
+                            entity, result_prob, weights, result, entity2=None):
+    """
+        Exports Human Readable results to output folder.
+        :param dataset: Model Class to export (Census, Cora or FEBRL)
+        :param graph_type: Folder Name to output the results.
+        :param dataset_prefix: Prefix for result files
+        :param method: Algorithm Name used to compute results
+        :param entity: List of labels for records from dataset A
+        :param result_prob: List of triplets (record_id_a, record_id_b, prob)
+        :param weights: List of weights for attributes used. len = no. of columns
+        :param result: List of pairs (record_id_a, record_id_b) linked by the algo
+        :param entity2: List of labels from dataset B, Default None if same as B = A.
+    """
+    base_file_name = config.BASE_OUTPUT_FOLDER + str(graph_type) +  "/"
+    create_folder_if_missing(base_file_name)
+    base_file_name = base_file_name + str(dataset_prefix) + "_" + str(method)
+    entity2 = entity2 if entity2 else entity
+    result = [(e1, e2, [str("%.2f" % (float(d * w)/sum(weights))) for w in weights], d)
+                for (e1, e2, d) in result_prob if (e1, e2) in result]
+
+    #Log full information about all results
+    model = dataset()
+    info_header = "\t".join([str(field) for field in model.trainDataA.iloc[0].index])
+    weight_header = ["id_a", "id_b"]
+    weight_header.extend(model.get_weight_header())
+    weight_header = "\t".join(weight_header)
+
+    with open(base_file_name + "_human_readable.tsv", "w+") as f:
+        for (e1, e2, w,d) in result:
+            f.write("%s\n" % str(weight_header))
+            f.write("%d\t%d\t%s\t%.2f\n\n" % (int(e1), int(e2), "\t".join(w), d))
+            f.write("id\t%s\n" % str(info_header))
+            f.write("%d\t%s\n" % (int(e1), str(model.get_entity_information(entity[int(e1)]))))
+            f.write("%d\t%s\n\n" % (int(e2), str(model.get_entity_information(entity2[int(e2)]))))
+
+    return True
