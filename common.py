@@ -360,7 +360,7 @@ def get_tf_summary_file_path(logger):
             str(datetime.datetime.now().strftime("%d_%m_%H_%M"))
 
 def export_human_readable_results(dataset, graph_type, dataset_prefix, method,
-                            entity, result_prob, weights, result, entity2=None):
+                                    entity, result, entity2=None):
     """
         Exports Human Readable results to output folder.
         :param dataset: Model Class to export (Census, Cora or FEBRL)
@@ -368,17 +368,13 @@ def export_human_readable_results(dataset, graph_type, dataset_prefix, method,
         :param dataset_prefix: Prefix for result files
         :param method: Algorithm Name used to compute results
         :param entity: List of labels for records from dataset A
-        :param result_prob: List of triplets (record_id_a, record_id_b, prob)
-        :param weights: List of weights for attributes used. len = no. of columns
-        :param result: List of pairs (record_id_a, record_id_b) linked by the algo
+        :param result: List of linked quadruplet (record_id_a, record_id_b, [p1, p2..], prob)
         :param entity2: List of labels from dataset B, Default None if same as B = A.
     """
     base_file_name = config.BASE_OUTPUT_FOLDER + str(graph_type) +  "/"
     create_folder_if_missing(base_file_name)
     base_file_name = base_file_name + str(dataset_prefix) + "_" + str(method)
     entity2 = entity2 if entity2 else entity
-    result = [(e1, e2, [str("%.2f" % (float(d * w)/sum(weights))) for w in weights], d)
-                for (e1, e2, d) in result_prob if (e1, e2) in result]
 
     #Log full information about all results
     model = dataset()
@@ -388,7 +384,7 @@ def export_human_readable_results(dataset, graph_type, dataset_prefix, method,
     weight_header = "\t".join(weight_header)
 
     with open(base_file_name + "_human_readable.tsv", "w+") as f:
-        for (e1, e2, w,d) in result:
+        for (e1, e2, w, d) in result:
             f.write("%s\n" % str(weight_header))
             f.write("%d\t%d\t%s\t%.2f\n\n" % (int(e1), int(e2), "\t".join(w), d))
             f.write("id\t%s\n" % str(info_header))
