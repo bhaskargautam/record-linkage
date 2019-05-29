@@ -56,8 +56,8 @@ class TestCensusRL(unittest.TestCase):
                     c.field_map[CensusFields.SURNAME_1] : "surname",
                     c.field_map[CensusFields.YOB] : "yob",
                     c.field_map[CensusFields.CIVIL_STATUS] : "civil",
-                    c.field_map[CensusFields.OCCUPATION] : "occupation",
-                    c.field_map[CensusFields.RELATION]: "relation"
+                    c.field_map[CensusFields.RELATION]: "relation",
+                    c.field_map[CensusFields.OCCUPATION] : "occupation"
                 }
 
         result_prob = []
@@ -81,12 +81,14 @@ class TestCensusRL(unittest.TestCase):
                     except ValueError:
                         missing_values.append(val_a)
                         distance = distance + 1
+                        dd.append(1)
                         continue
                     try:
                         val_index_b = graph.relation_value_map[rel].index(val_b)
                     except ValueError:
                         missing_values.append(val_b)
                         distance = distance + 1
+                        dd.append(1)
                         continue
                     rel_index = graph.relation.index(field_relation_map[f])
 
