@@ -83,8 +83,8 @@ class TestVEER(unittest.TestCase):
         return (max_fscore, precison_at_1)
 
     def get_default_params(self):
-        return {'learning_rate': 0.1, 'margin': 0.1, 'dimension': 16, 'epochs': 30,
-                'regularizer_scale' : 0.1, 'batchSize' : 512 }
+        return {'learning_rate': 0.1, 'margin': 1, 'dimension': 16, 'epochs': 100,
+                'regularizer_scale' : 0.1, 'batchSize' : 32 }
 
     def test_veer_cora(self):
         self._test_veer(Cora, ['title', 'author', 'publisher', 'date',
@@ -100,12 +100,12 @@ class TestVEER(unittest.TestCase):
                     'parentesc_har', 'ocupacio_hisco'], self.get_default_params())
 
     def _test_grid_search(self, dataset, columns):
-        dimension= [128, 256]
-        batchSize= [1024, 32]
+        dimension= [16, 32, 64]
+        batchSize= [32, 64]
         learning_rate= [0.1]
-        margin= [1]
+        margin= [1, 0.1]
         regularizer_scale = [0.1]
-        epochs = [1000, 5000]
+        epochs = [50, 100, 500]
         count = 0
         max_fscore = 0
         max_prec_at_1 = 0
@@ -116,16 +116,14 @@ class TestVEER(unittest.TestCase):
         for d, bs, lr, m, reg, e in \
             itertools.product(dimension, batchSize, learning_rate, margin, regularizer_scale, epochs):
             params = {'learning_rate': lr, 'margin': m, 'dimension': d, 'epochs': e, 'batchSize' : bs,
-                        'regularizer_scale' : reg, 'neg_rate' : nr, 'neg_rel_rate': nrr}
+                        'regularizer_scale' : reg}
             logger.info("\nTest:%d, PARAMS: %s", count, str(params))
             count = count + 1
-
             cur_fscore, cur_prec_at_1 = self._test_veer(dataset, columns, params)
             if max_fscore <= cur_fscore:
                 max_fscore = cur_fscore
             if max_prec_at_1 <= cur_prec_at_1:
                 max_prec_at_1 = cur_prec_at_1
-
             logger.info("Ran total %d Tests.", count)
             logger.info("Max Fscore: %f", max_fscore)
             logger.info("Max Mean Precision@1: %f", max_prec_at_1)
