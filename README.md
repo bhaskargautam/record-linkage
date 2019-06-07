@@ -23,7 +23,7 @@ We work with three datasets defined in data folder. All pre-processing and split
 2. FEBRL: Syntectic Census dataset
 3. Census: Real Census data from Barcelona from early 20th century. 
 
-Raw census data is propeietry of [UAB-CVC](http://www.cvc.uab.es/) and thus included in this repositary.
+Raw census data is propeietry of [UAB-CVC](http://www.cvc.uab.es/) and thus not included in this repositary.
 
 ### Methods
 
@@ -34,6 +34,14 @@ For base results we use [recordlinkage](https://github.com/J535D165/recordlinkag
 
 Following graph embedding based methods are implemented
 1. TransE
-2. TransH **Todo**
-3. KR-EAR **Todo**
-4. SEEA **Todo**
+2. TransH 
+3. KR-EAR 
+4. SEEA
+5. MTransE
+
+Proposed Methods:
+1. HTransE
+2. LogTransE
+3. E-MTransE
+4. RL-TransE
+5. VEER
