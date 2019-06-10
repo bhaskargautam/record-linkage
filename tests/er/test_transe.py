@@ -7,6 +7,8 @@ import unittest
 
 from common import (
     export_embeddings,
+    export_false_positives,
+    export_false_negatives,
     export_result_prob,
     get_optimal_threshold,
     get_logger,
@@ -27,7 +29,7 @@ class TestTransE(unittest.TestCase):
         #Load Graph Data
         graph = Graph_ER(dataset)
         model = dataset()
-        logger = get_logger('RL.Test.TransE.' + str(model))
+        logger = get_logger('RL.Test.er.TransE.' + str(model))
 
         transe = TransE(graph, dimension=params['dimension'],
                         learning_rate=params['learning_rate'],
@@ -58,6 +60,10 @@ class TestTransE(unittest.TestCase):
             params['threshold'] = optimal_threshold
             result = pd.MultiIndex.from_tuples([(e1, e2) for (e1, e2, d) in result_prob if d <= optimal_threshold])
             log_quality_results(logger, result, graph.true_pairs, len(graph.entity_pairs), params)
+            export_false_negatives(dataset, 'er', str(model), 'Transe', graph.entity, result_prob,
+                                graph.true_pairs, result, graph.entity)
+            export_false_positives(dataset, 'er', str(model), 'Transe', graph.entity, result_prob,
+                                graph.true_pairs, result, graph.entity)
         except:
             logger.info("Zero Reults")
 
@@ -69,8 +75,8 @@ class TestTransE(unittest.TestCase):
         return (max_fscore, precison_at_1)
 
     def get_default_params(self):
-        return {'learning_rate': 0.1, 'margin': 2, 'dimension': 128, 'epochs': 1000,
-                'regularizer_scale' : 0.1, 'batchSize' : 1024, 'neg_rate' : 8, 'neg_rel_rate': 2}
+        return {'learning_rate': 0.1, 'margin': 1, 'dimension': 128, 'epochs': 1000,
+                'regularizer_scale' : 0.1, 'batchSize' : 64, 'neg_rate' : 7, 'neg_rel_rate': 1}
 
     def test_transe_cora(self):
         self._test_transe(Cora, self.get_default_params())
@@ -95,7 +101,7 @@ class TestTransE(unittest.TestCase):
         max_prec_at_1 = 0
 
         model = dataset()
-        logger = get_logger('RL.Test.GridSearch.TransE.' + str(model))
+        logger = get_logger('RL.Test.er.GridSearch.TransE.' + str(model))
 
         for d, bs, lr, m, reg, e, nr, nrr in \
             itertools.product(dimension, batchSize, learning_rate, margin, regularizer_scale, epochs, neg_rate, neg_rel_rate):

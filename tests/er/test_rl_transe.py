@@ -27,7 +27,7 @@ class TestRLTransE(unittest.TestCase):
         #Load Graph Data
         graph = Graph_ER(dataset)
         model = dataset()
-        logger = get_logger('RL.Test.RLTransE.' + str(model))
+        logger = get_logger('RL.Test.er.RLTransE.' + str(model))
 
         transe = TransE(graph, dimension=params['dimension'],
                         learning_rate=params['learning_rate'],

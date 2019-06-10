@@ -6,6 +6,8 @@ import unittest
 
 from common import (
     export_embeddings,
+    export_false_positives,
+    export_false_negatives,
     export_result_prob,
     get_optimal_threshold,
     get_logger,
@@ -24,7 +26,7 @@ class TestTransH(unittest.TestCase):
     def _test_transh(self, dataset, params):
         graph = Graph_ER(dataset)
         model = dataset()
-        logger = get_logger('RL.Test.TransH.' + str(model))
+        logger = get_logger('RL.Test.er.TransH.' + str(model))
 
         transh = TransH(graph, dimension=params['dimension'],
                         learning_rate=params['learning_rate'],
@@ -55,6 +57,10 @@ class TestTransH(unittest.TestCase):
             result = pd.MultiIndex.from_tuples([(e1, e2) for (e1, e2, d) in result_prob if d <= optimal_threshold])
             params['threshold'] = optimal_threshold
             log_quality_results(logger, result, graph.true_pairs, len(graph.entity_pairs), params)
+            export_false_negatives(dataset, 'er', str(model), 'TransH', graph.entity, result_prob,
+                                graph.true_pairs, result, graph.entity)
+            export_false_positives(dataset, 'er', str(model), 'TransH', graph.entity, result_prob,
+                                graph.true_pairs, result, graph.entity)
         except:
             logger.info("Zero Reults")
 
@@ -89,7 +95,7 @@ class TestTransH(unittest.TestCase):
         neg_rate = [1, 7]
 
         model = dataset()
-        logger = get_logger('RL.Test.GridSearch.TransH.' + str(model))
+        logger = get_logger('RL.Test.er.GridSearch.TransH.' + str(model))
         count = 0
         max_fscore = 0
         max_prec_at_1 = 0
