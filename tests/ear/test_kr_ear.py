@@ -6,6 +6,8 @@ import unittest
 
 from common import (
     export_embeddings,
+    export_false_positives,
+    export_false_negatives,
     export_result_prob,
     get_logger,
     get_optimal_threshold,
@@ -23,7 +25,7 @@ class Test_KR_EAR(unittest.TestCase):
     def _test_kr_ear(self, dataset, params):
         graph = Graph_EAR(dataset)
         model = dataset()
-        logger = get_logger('RL.Test.KR_EAR.' + str(model))
+        logger = get_logger('RL.Test.ear.KR_EAR.' + str(model))
 
         kr_ear = KR_EAR(graph, dimension=params['dimension'],
                         learning_rate=params['learning_rate'],
@@ -54,6 +56,10 @@ class Test_KR_EAR(unittest.TestCase):
             result = pd.MultiIndex.from_tuples([(e1, e2) for (e1, e2, d) in result_prob if d <= optimal_threshold])
             params['threshold'] = optimal_threshold
             log_quality_results(logger, result, graph.true_pairs, len(graph.entity_pairs), params)
+            export_false_negatives(dataset, 'ear', str(model), 'KR_EAR', graph.entity, result_prob,
+                                graph.true_pairs, result, graph.entity)
+            export_false_positives(dataset, 'ear', str(model), 'KR_EAR', graph.entity, result_prob,
+                                graph.true_pairs, result, graph.entity)
         except:
             logger.info("Zero Reults")
 
@@ -87,7 +93,7 @@ class Test_KR_EAR(unittest.TestCase):
         neg_rel_rate = [1, 4]
         neg_rate = [1, 7]
 
-        logger = get_logger('RL.Test.GridSearch.KR_EAR' + str(model))
+        logger = get_logger('RL.Test.ear.GridSearch.KR_EAR' + str(model))
         count = 0
         max_fscore = 0
         max_prec_at_1 = 0

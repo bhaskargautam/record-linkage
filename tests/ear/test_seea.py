@@ -5,6 +5,8 @@ import unittest
 
 from common import (
     export_embeddings,
+    export_false_positives,
+    export_false_negatives,
     export_result_prob,
     get_logger,
     InformationRetrievalMetrics,
@@ -21,7 +23,7 @@ class Test_SEEA(unittest.TestCase):
     def _test_seea(self, dataset, params):
         model = dataset()
         graph = Graph_EAR(dataset)
-        logger = get_logger('RL.Test.SEEA.' + str(model))
+        logger = get_logger('RL.Test.ear.SEEA.' + str(model))
 
         seea = SEEA(graph, dimension = params['dimension'],
                         learning_rate = params['learning_rate'],
@@ -50,6 +52,14 @@ class Test_SEEA(unittest.TestCase):
             distance = abs(spatial.distance.cosine(ent_embeddings[e1], ent_embeddings[e2]))
             result_prob.append((e1, e2, distance))
         export_result_prob(dataset, 'ear', str(model), 'SEEA', graph.entity, result_prob, graph.true_pairs)
+
+        try:
+            export_false_negatives(dataset, 'ear', str(model), 'SEEA', graph.entity, result_prob,
+                                    graph.true_pairs, result_pairs, graph.entity)
+            export_false_positives(dataset, 'ear', str(model), 'SEEA', graph.entity, result_prob,
+                                    graph.true_pairs, result_pairs, graph.entity)
+        except Exception as e:
+            logger.error(e)
 
         #Log MAP, MRR and Hits@K
         ir_metrics = InformationRetrievalMetrics(result_prob, graph.true_pairs)
@@ -87,7 +97,7 @@ class Test_SEEA(unittest.TestCase):
         max_prec_at_1 = 0
         model = dataset()
 
-        logger = get_logger('RL.Test.GridSearch.SEEA.' + str(model))
+        logger = get_logger('RL.Test.ear.GridSearch.SEEA.' + str(model))
 
         for b, d, bs, lr, m, reg, e, nr, nrr, mi in \
             itertools.product(beta, dimension, batchSize, learning_rate, margin, regularizer_scale, epochs, neg_rate, neg_rel_rate, max_iter):

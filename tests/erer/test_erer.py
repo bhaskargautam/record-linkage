@@ -35,7 +35,7 @@ class TestERER(unittest.TestCase):
                         neg_rel_rate=params['neg_rel_rate'])
         loss = er_model.train(max_epochs=params['epochs'])
 
-        logger = get_logger('RL.Test.ERER.' + str(model) + "." + str(er_model))
+        logger = get_logger('RL.Test.erer.ERER.' + str(model) + "." + str(er_model))
         logger.info("Training Complete with loss: %f", loss)
 
         ent_embeddings = er_model.get_ent_embeddings()

@@ -19,7 +19,7 @@ class TestLogisticTransH(unittest.TestCase):
 
     def _test_logistic_transh_erer(self, dataset, params):
         model = dataset()
-        logger = get_logger('RL.Test.LogisticTransH.ERER.' + str(model))
+        logger = get_logger('RL.Test.erer.LogisticTransH.ERER.' + str(model))
         entA, entB, relA, relB, triA, triB, entity_pairs, prior_pairs, true_pairs = model.get_erer_model()
 
         self.assertTrue(all([(tp in entity_pairs) for tp in true_pairs]))

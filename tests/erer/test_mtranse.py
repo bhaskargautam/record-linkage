@@ -23,7 +23,7 @@ class TestMTransE(unittest.TestCase):
     def _test_mtranse(self, dataset, params):
         model = dataset()
         graph = Graph_ERER(dataset)
-        logger = get_logger('RL.Test.MTransE.' + str(model))
+        logger = get_logger('RL.Test.erer.MTransE.' + str(model))
 
         mtranse = MTransE(graph, dimension=params['dimension'],
                                  batchSize=params['batchSize'],
@@ -55,6 +55,10 @@ class TestMTransE(unittest.TestCase):
             params['threshold'] = optimal_threshold
             result = pd.MultiIndex.from_tuples([(e1, e2) for (e1, e2, d) in result_prob if d <= optimal_threshold])
             log_quality_results(logger, result, graph.true_pairs, len(graph.entity_pairs), params)
+            export_false_negatives(dataset, 'erer', str(model), 'MTransE', graph.entityA, result_prob,
+                                    graph.true_pairs, result, graph.entityB)
+            export_false_positives(dataset, 'erer', str(model), 'MTransE', graph.entityA, result_prob,
+                                    graph.true_pairs, result, graph.entityB)
         except Exception as e:
             logger.info("Zero Reults")
             logger.error(e)

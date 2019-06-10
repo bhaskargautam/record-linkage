@@ -24,7 +24,7 @@ class TestETransE(unittest.TestCase):
     def _test_etranse(self, dataset, params):
         model = dataset()
         graph = Graph_ERER(dataset)
-        logger = get_logger("RL.Test.ETransE." + str(model))
+        logger = get_logger("RL.Test.erer.ETransE." + str(model))
 
         etranse = ETransE(graph, dimension=params['dimension'],
                                 batchSize=params['batchSize'],
