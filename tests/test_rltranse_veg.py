@@ -169,7 +169,6 @@ class TestRLTransE(unittest.TestCase):
         return {'learning_rate': 0.1, 'margin': 1, 'dimension': 128, 'epochs': 1000,
                 'regularizer_scale' : 0.1, 'batchSize' : 64, 'neg_rate' : 7, 'neg_rel_rate': 1}
 
-
     def test_census(self):
          #Map of feilds in census dataFrame to VEG relations.
         c = Census()
@@ -192,3 +191,121 @@ class TestRLTransE(unittest.TestCase):
         relation = ['given_name', 'surname', 'state', 'date_of_birth', 'postcode']
         field_relation_map = {r: r for r in relation}
         return self._test_rl_transe(FEBRL, field_relation_map, self.get_default_params())
+
+    def test_grid_search_census(self):
+         #Map of feilds in census dataFrame to VEG relations.
+        c = Census()
+        field_relation_map = {
+                    c.field_map[CensusFields.FIRST_NAME] : "name",
+                    c.field_map[CensusFields.SURNAME_1] : "surname",
+                    c.field_map[CensusFields.YOB] : "yob",
+                    c.field_map[CensusFields.CIVIL_STATUS] : "civil",
+                    c.field_map[CensusFields.RELATION]: "relation",
+                    c.field_map[CensusFields.OCCUPATION] : "occupation"
+                }
+
+        dimension= [32, 64, 128]
+        batchSize= [32, 64, 128]
+        learning_rate= [0.1]
+        margin= [1, 0.1]
+        regularizer_scale = [0.1]
+        epochs = [1000, 5000]
+        neg_rate = [7]
+        neg_rel_rate = [1]
+
+        count = 0
+        max_fscore = 0
+        max_prec_at_1 = 0
+
+        logger = get_logger('RL.Test.GridSearch.RLTransE.' + str(c))
+
+        for d, bs, lr, m, reg, e, nr, nrr in itertools.product(dimension, batchSize, learning_rate,
+                        margin, regularizer_scale, epochs, neg_rate, neg_rel_rate):
+            params = {'learning_rate': lr, 'margin': m, 'dimension': d, 'epochs': e, 'batchSize' : bs,
+                        'regularizer_scale' : reg, 'neg_rate' : nr, 'neg_rel_rate': nrr}
+            logger.info("\nTest:%d, PARAMS: %s", count, str(params))
+            count = count + 1
+            cur_fscore, cur_prec_at_1 = self._test_rl_transe(Census, field_relation_map, params)
+            if max_fscore <= cur_fscore:
+                max_fscore = cur_fscore
+            if max_prec_at_1 <= cur_prec_at_1:
+                max_prec_at_1 = cur_prec_at_1
+            logger.info("Ran total %d Tests.", count)
+            logger.info("Max Fscore: %f", max_fscore)
+            logger.info("Max Mean Precision@1: %f", max_prec_at_1)
+
+        return True
+
+    def test_grid_search_cora(self):
+        relation = ['author', 'publisher', 'date', 'title', 'journal', 'volume', 'pages', 'address']
+        field_relation_map = {r : r for r in relation}
+        c = Cora()
+
+        dimension= [32, 64, 128]
+        batchSize= [32, 64, 128]
+        learning_rate= [0.1]
+        margin= [1, 0.1]
+        regularizer_scale = [0.1]
+        epochs = [1000, 5000]
+        neg_rate = [7]
+        neg_rel_rate = [1]
+
+        count = 0
+        max_fscore = 0
+        max_prec_at_1 = 0
+
+        logger = get_logger('RL.Test.GridSearch.RLTransE.' + str(c))
+
+        for d, bs, lr, m, reg, e, nr, nrr in itertools.product(dimension, batchSize, learning_rate,
+                        margin, regularizer_scale, epochs, neg_rate, neg_rel_rate):
+            params = {'learning_rate': lr, 'margin': m, 'dimension': d, 'epochs': e, 'batchSize' : bs,
+                        'regularizer_scale' : reg, 'neg_rate' : nr, 'neg_rel_rate': nrr}
+            logger.info("\nTest:%d, PARAMS: %s", count, str(params))
+            count = count + 1
+            cur_fscore, cur_prec_at_1 = self._test_rl_transe(Cora, field_relation_map, params)
+            if max_fscore <= cur_fscore:
+                max_fscore = cur_fscore
+            if max_prec_at_1 <= cur_prec_at_1:
+                max_prec_at_1 = cur_prec_at_1
+            logger.info("Ran total %d Tests.", count)
+            logger.info("Max Fscore: %f", max_fscore)
+            logger.info("Max Mean Precision@1: %f", max_prec_at_1)
+
+        return True
+
+    def test_grid_search_febrl(self):
+        relation = ['given_name', 'surname', 'state', 'date_of_birth', 'postcode']
+        field_relation_map = {r: r for r in relation}
+        f = FEBRL()
+
+        dimension= [32, 64, 128]
+        batchSize= [32, 64, 128]
+        learning_rate= [0.1]
+        margin= [1, 0.1]
+        regularizer_scale = [0.1]
+        epochs = [1000, 5000]
+        neg_rate = [7]
+        neg_rel_rate = [1]
+
+        count = 0
+        max_fscore = 0
+        max_prec_at_1 = 0
+
+        logger = get_logger('RL.Test.GridSearch.RLTransE.' + str(f))
+
+        for d, bs, lr, m, reg, e, nr, nrr in itertools.product(dimension, batchSize, learning_rate,
+                        margin, regularizer_scale, epochs, neg_rate, neg_rel_rate):
+            params = {'learning_rate': lr, 'margin': m, 'dimension': d, 'epochs': e, 'batchSize' : bs,
+                        'regularizer_scale' : reg, 'neg_rate' : nr, 'neg_rel_rate': nrr}
+            logger.info("\nTest:%d, PARAMS: %s", count, str(params))
+            count = count + 1
+            cur_fscore, cur_prec_at_1 = self._test_rl_transe(FEBRL, field_relation_map, params)
+            if max_fscore <= cur_fscore:
+                max_fscore = cur_fscore
+            if max_prec_at_1 <= cur_prec_at_1:
+                max_prec_at_1 = cur_prec_at_1
+            logger.info("Ran total %d Tests.", count)
+            logger.info("Max Fscore: %f", max_fscore)
+            logger.info("Max Mean Precision@1: %f", max_prec_at_1)
+
+        return True
