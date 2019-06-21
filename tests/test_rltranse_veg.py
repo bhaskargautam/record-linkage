@@ -127,41 +127,39 @@ class TestRLTransE(unittest.TestCase):
         transe.close_tf_session()
 
         #Export False Positives and result porobabilities
-        """
-        get_entity_name = lambda c, d, i: "_".join([
+        get_entity_name = lambda d, i: "_".join([
                                 str(d.iloc[i][dataset.field_map[CensusFields.ID_INDIVIDUAL]]),
                                 str(d.iloc[i][dataset.field_map[CensusFields.DNI]])])
-        get_entity_name_loc = lambda c, d, i: "_".join([
+        get_entity_name_loc = lambda d, i: "_".join([
                                 str(d.loc[i][dataset.field_map[CensusFields.ID_INDIVIDUAL]]),
                                 str(d.loc[i][dataset.field_map[CensusFields.DNI]])])
-        entitiesA = [get_entity_name(c, dataset.testDataA, i)
+        entitiesA = [get_entity_name(dataset.testDataA, i)
                         for i in range(int(dataset.testDataA.shape[0]))]
-        entitiesB = [get_entity_name(c, dataset.testDataB, i)
+        entitiesB = [get_entity_name(dataset.testDataB, i)
                         for i in range(int(dataset.testDataB.shape[0]))]
-        result_prob = [(entitiesA.index(get_entity_name_loc(c, dataset.testDataA, int(a))),
-                        entitiesB.index(get_entity_name_loc(c, dataset.testDataB, int(b))),
+        result_prob = [(entitiesA.index(get_entity_name_loc(dataset.testDataA, int(a))),
+                        entitiesB.index(get_entity_name_loc(dataset.testDataB, int(b))),
                         p) for (a, b, p) in result_prob]
-        true_links = [(entitiesA.index(get_entity_name_loc(c, dataset.testDataA, int(a))),
-                        entitiesB.index(get_entity_name_loc(c, dataset.testDataB, int(b))))
+        true_links = [(entitiesA.index(get_entity_name_loc(dataset.testDataA, int(a))),
+                        entitiesB.index(get_entity_name_loc(dataset.testDataB, int(b))))
                         for (a, b) in dataset.true_test_links]
         export_result_prob(Census, 'veg', 'census', 'rltranse', entitiesA, result_prob,
                                 true_links, entitiesB)
 
-        distance_distribution = [(entitiesA.index(get_entity_name_loc(c, dataset.testDataA, int(a))),
-                        entitiesB.index(get_entity_name_loc(c, dataset.testDataB, int(b))),
+        distance_distribution = [(entitiesA.index(get_entity_name_loc(dataset.testDataA, int(a))),
+                        entitiesB.index(get_entity_name_loc(dataset.testDataB, int(b))),
                         [str("%.2f" % (float(w))) for w in dd], 1 - d)
                         for (e1, e2, dd, d) in distance_distribution if (e1, e2) in result]
         export_human_readable_results(Census, 'veg', 'census', 'rltranse', entitiesA,
                                         distance_distribution, entitiesB)
 
-        result = [(entitiesA.index(get_entity_name_loc(c, dataset.testDataA, int(a))),
-                    entitiesB.index(get_entity_name_loc(c, dataset.testDataB, int(b))))
+        result = [(entitiesA.index(get_entity_name_loc(dataset.testDataA, int(a))),
+                    entitiesB.index(get_entity_name_loc(dataset.testDataB, int(b))))
                     for (a, b) in result]
         export_false_negatives(Census, 'veg', 'census', 'rltranse', entitiesA, result_prob,
                                 true_links, result, entitiesB)
         export_false_positives(Census, 'veg', 'census', 'rltranse', entitiesA, result_prob,
                                 true_links, result, entitiesB)
-        """
 
         return (max_fscore, precison_at_1)
 

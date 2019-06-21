@@ -72,18 +72,23 @@ class TestVEER(unittest.TestCase):
                         for i in range(dataset.testDataB.shape[0])}
         result_prob = [(index_dictA[str(a)], index_dictB[str(b)], p)
                             for (a, b, p) in result_prob]
+        true_links = [(index_dictA[str(a)], index_dictB[str(b)])
+                            for (a, b) in dataset.true_test_links]
         export_result_prob(dataset, 'veg', str(dataset), 'VEER', entitiesA, result_prob,
-                                    dataset.true_test_links, entitiesB)
+                                    true_links, entitiesB)
+
+        result = [(index_dictA[str(a)], index_dictB[str(b)])
+                            for (a, b) in result]
         export_false_negatives(model, 'veg', str(dataset), 'VEER', entitiesA, result_prob,
-                            dataset.true_test_links, result, entitiesB)
+                            true_links, result, entitiesB)
         export_false_positives(model, 'veg', str(dataset), 'VEER', entitiesA, result_prob,
-                            dataset.true_test_links, result, entitiesB)
+                            true_links, result, entitiesB)
 
         veer.close_tf_session()
         return (max_fscore, precison_at_1)
 
     def get_default_params(self):
-        return {'learning_rate': 0.1, 'margin': 1, 'dimension': 16, 'epochs': 100,
+        return {'learning_rate': 0.1, 'margin': 0.1, 'dimension': 16, 'epochs': 100,
                 'regularizer_scale' : 0.1, 'batchSize' : 32 }
 
     def test_veer_cora(self):
