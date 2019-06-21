@@ -253,16 +253,18 @@ def get_optimal_threshold(result_prob, true_pairs, min_threshold=0.1, max_thresh
     optimal_threshold = 0
     for threshold in range(int(min_threshold*100),int(max_threshold*100), int(step*100)):
         threshold = threshold / 100.0
-        try:
-            result = pd.MultiIndex.from_tuples([(e1, e2) for (e1, e2, d) in result_prob if d <= threshold])
-            fscore = recordlinkage.fscore(true_pairs, result)
-            logger.debug("For threshold: %f fscore: %f", threshold, fscore)
-            if fscore >= max_fscore:
-                max_fscore = fscore
-                optimal_threshold = threshold
-        except Exception as e:
-            logger.error(e)
+        result = [(e1, e2) for (e1, e2, d) in result_prob if d <= threshold]
+        if not len(result):
+            logger.info("No results for threshold: %.2f", threshold)
             continue
+        result = pd.MultiIndex.from_tuples(result)
+        true_pairs = pd.MultiIndex.from_tuples(true_pairs)
+        fscore = recordlinkage.fscore(true_pairs, result)
+        logger.debug("For threshold: %f fscore: %f", threshold, fscore)
+        if fscore >= max_fscore:
+            max_fscore = fscore
+            optimal_threshold = threshold
+
     logger.info("Found optimal threshold %f with max_fscore: %f", optimal_threshold, max_fscore)
     return (optimal_threshold, max_fscore)
 
