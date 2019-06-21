@@ -16,7 +16,7 @@ class VEER(object):
     """
 
     def __init__(self, dataset, columns, dimension=10, batchSize=100, learning_rate=0.1,
-                                    margin=1, regularizer_scale = 0.1):
+                                    margin=1, regularizer_scale = 0.1, test_values=None):
         """
             Constructor to build the tf model, define required placeholders,
             define loss and optimization method.
@@ -37,50 +37,14 @@ class VEER(object):
                 self.dataset.testDataA, self.dataset. testDataB]:
             for col in self.columns:
                 self.values.extend(list(data[col]))
-        self.values = set(self.values)
-        logger.info("No. of unique values: %d", len(self.values))
         self.values = list([self._clean(v) for v in self.values])
+        if test_values:
+            self.values.extend(list(test_values))
+        #Default for Missing Value. Should pass test_values to avoid missing values.
+        self.values.append('missing_value')
+        self.values = list(set(self.values))
+        logger.info("No. of unique values: %d", len(self.values))
 
-        # List of candidate pairs. Remove last incomplete batch if any.
-        self.train_candidate = np.array(self.dataset.candidate_links[0: (len(self.dataset.candidate_links)
-                                        - len(self.dataset.candidate_links)%batchSize)])
-        self.val_candidate = np.array(self.dataset.val_links[0: (len(self.dataset.val_links)
-                                        - len(self.dataset.val_links)%batchSize)])
-        self.test_candidate = np.array(self.dataset.test_links[0: (len(self.dataset.test_links)
-                                        - len(self.dataset.test_links)%batchSize)])
-
-        logger.info("Shape of train candidate: %s", str(self.train_candidate.shape))
-        logger.info("Shape of validation candidate: %s", str(self.val_candidate.shape))
-        logger.info("Shape of test candidate: %s", str(self.test_candidate.shape))
-
-        #List of ground truth for each candidate pair
-        self.train_truth = np.array([1.0 if c in self.dataset.true_links else -1.0
-                                        for c in self.train_candidate])
-        self.val_truth = np.array([1.0 if c in self.dataset.true_val_links else -1.0
-                                        for c in self.val_candidate])
-        self.test_truth = np.array([1.0 if c in self.dataset.true_test_links else -1.0
-                                        for c in self.test_candidate])
-
-        logger.info("Shape of train truth: %s", str(self.train_truth.shape))
-        logger.info("Shape of validation truth: %s", str(self.val_truth.shape))
-        logger.info("Shape of test truth: %s", str(self.test_truth.shape))
-
-        # Load values for candidate pairs
-        dataA = self.dataset.trainDataA[self.columns]
-        dataB = self.dataset.trainDataB[self.columns]
-        self.train_records = self._get_records(dataA, dataB, self.train_candidate)
-
-        dataA = self.dataset.valDataA[self.columns]
-        dataB = self.dataset.valDataB[self.columns]
-        self.val_records = self._get_records(dataA, dataB, self.val_candidate)
-
-        dataA = self.dataset.testDataA[self.columns]
-        dataB = self.dataset.testDataB[self.columns]
-        self.test_records = self._get_records(dataA, dataB, self.test_candidate)
-
-        logger.info("Shape of train records: %s", str(self.train_records.shape))
-        logger.info("Shape of validation records: %s", str(self.val_records.shape))
-        logger.info("Shape of test records: %s", str(self.test_records.shape))
 
         #Define Embedding Variables
         initializer = tf.contrib.layers.xavier_initializer(uniform = True)
@@ -160,14 +124,23 @@ class VEER(object):
         self.validation_summary_writer = tf.summary.FileWriter(get_tf_summary_file_path(logger) + '/val',
                                     self.sess.graph)
 
+        #Configure Saver
+        self.saver = tf.train.Saver()
+
+    def _get_value_index(self, val):
+        try:
+            return self.values.index(val)
+        except ValueError:
+            return self.values.index('missing_value')
+
     def _get_records(self, dataA, dataB, candidates):
         """
             Private method to map vaules to its index for each record
         """
-        dataA_dict = {id : [self.values.index(self._clean(r[i]))
+        dataA_dict = {id : [self._get_value_index(self._clean(r[i]))
                                 for i in range(len(self.columns))]
                                     for id, r in dataA.iterrows()}
-        dataB_dict = {id : [self.values.index(self._clean(r[i]))
+        dataB_dict = {id : [self._get_value_index(self._clean(r[i]))
                                 for i in range(len(self.columns))]
                                     for id, r in dataB.iterrows()}
         records = [(dataA_dict[a], dataB_dict[b]) for (a, b) in candidates]
@@ -183,6 +156,37 @@ class VEER(object):
         """
             Method to train the model and update the embeddings.
         """
+
+        # List of candidate pairs. Remove last incomplete batch if any.
+        self.train_candidate = np.array(self.dataset.candidate_links[0: (len(self.dataset.candidate_links)
+                                        - len(self.dataset.candidate_links)%self.batchSize)])
+        self.val_candidate = np.array(self.dataset.val_links[0: (len(self.dataset.val_links)
+                                        - len(self.dataset.val_links)%self.batchSize)])
+
+        logger.info("Shape of train candidate: %s", str(self.train_candidate.shape))
+        logger.info("Shape of validation candidate: %s", str(self.val_candidate.shape))
+
+        #List of ground truth for each candidate pair
+        self.train_truth = np.array([1.0 if c in self.dataset.true_links else -1.0
+                                        for c in self.train_candidate])
+        self.val_truth = np.array([1.0 if c in self.dataset.true_val_links else -1.0
+                                        for c in self.val_candidate])
+
+        logger.info("Shape of train truth: %s", str(self.train_truth.shape))
+        logger.info("Shape of validation truth: %s", str(self.val_truth.shape))
+
+        # Load values for candidate pairs
+        dataA = self.dataset.trainDataA[self.columns]
+        dataB = self.dataset.trainDataB[self.columns]
+        self.train_records = self._get_records(dataA, dataB, self.train_candidate)
+
+        dataA = self.dataset.valDataA[self.columns]
+        dataB = self.dataset.valDataB[self.columns]
+        self.val_records = self._get_records(dataA, dataB, self.val_candidate)
+
+        logger.info("Shape of train records: %s", str(self.train_records.shape))
+        logger.info("Shape of validation records: %s", str(self.val_records.shape))
+
         loss = 0
         with self.sess.as_default():
             self.sess.run(tf.local_variables_initializer())
@@ -260,10 +264,39 @@ class VEER(object):
                     break
         return (loss, val_loss)
 
-    def test(self):
+    def test(self, dataA=None, dataB=None, test_links=None, test_truth=None, columns=None):
         """
             Method to generate predictions over test data
         """
+        # List of candidate pairs. Remove last incomplete batch if any.
+        if test_links is None:
+            test_links = self.dataset.test_links
+        if test_truth is None:
+            test_truth = self.dataset.true_test_links
+        if dataA is None:
+            dataA = self.dataset.testDataA
+        if dataB is None:
+            dataB = self.dataset.testDataB
+        if columns is None:
+            columns = self.columns
+
+        self.test_candidate = np.array(test_links[0: (len(test_links)
+                                                    - len(test_links)%self.batchSize)])
+
+        logger.info("Shape of test candidate: %s", str(self.test_candidate.shape))
+
+        self.test_truth = np.array([1.0 if c in test_truth else -1.0
+                                        for c in self.test_candidate])
+
+        logger.info("Shape of test truth: %s", str(self.test_truth.shape))
+
+        #Load Data
+        dataA = dataA[columns]
+        dataB = dataB[columns]
+        self.test_records = self._get_records(dataA, dataB, self.test_candidate)
+
+        logger.info("Shape of test records: %s", str(self.test_records.shape))
+
         predict = []
         accuracy = 0
         with self.sess.as_default():
@@ -295,6 +328,18 @@ class VEER(object):
     def get_col_weights(self):
         with self.sess.as_default():
             return tf.nn.embedding_lookup(self.col_weights, range(0, len(self.columns))).eval()
+
+    def save_model(self, filename):
+        with self.sess.as_default():
+            self.saver.save(self.sess, filename)
+        logger.info("Saved tf train model with filename: %s", filename)
+        return True
+
+    def restore_model(self, filename):
+        with self.sess.as_default():
+            self.saver.restore(self.sess, filename)
+        logger.info("Restored tf train model from filename: %s", filename)
+        return True
 
     def close_tf_session(self):
         tf.reset_default_graph()
