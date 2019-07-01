@@ -259,7 +259,11 @@ def get_optimal_threshold(result_prob, true_pairs, min_threshold=0.1, max_thresh
             continue
         result = pd.MultiIndex.from_tuples(result)
         true_pairs = pd.MultiIndex.from_tuples(true_pairs)
-        fscore = recordlinkage.fscore(true_pairs, result)
+        try:
+            fscore = recordlinkage.fscore(true_pairs, result)
+        except ZeroDivisionError:
+            logger.info("ZeroDivisionError in recordlinkage.fscore")
+            continue
         logger.debug("For threshold: %f fscore: %f", threshold, fscore)
         if fscore >= max_fscore:
             max_fscore = fscore
