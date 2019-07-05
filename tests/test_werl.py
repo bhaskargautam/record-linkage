@@ -88,7 +88,6 @@ class TestWERL(unittest.TestCase):
                         margin=params['margin'],
                         regularizer_scale=params['regularizer_scale'],
                         batchSize=params['batchSize'])
-
         loss, val_loss = werl.train(max_epochs=params['epochs'])
         logger.info("Training Complete with loss: %f, val_loss:%f", loss, val_loss)
 
@@ -114,7 +113,34 @@ class TestWERL(unittest.TestCase):
         #Log MAP, MRR and Hits@K
         ir_metrics = InformationRetrievalMetrics(result_prob, dataset.true_test_links)
         precison_at_1 = ir_metrics.log_metrics(logger, params)
+
+        #Test Without Weights
+        logger = get_logger('RL.Test.WERL.NoWT.' + str(dataset))
+
+        result_prob, accuracy = werl.test_without_weight()
+        logger.info("Predict count: %d", len(result_prob))
+        logger.info("Sample Prob: %s", str([ (c, (a, b) in dataset.true_test_links)
+                                        for (a,b,c) in result_prob[:20]]))
+        logger.info("Column Weights: %s", str(werl.get_col_weights()))
+        logger.info("Accuracy: %s", str(accuracy))
+
+        #Compute Performance measures
+        optimal_threshold, nowt_max_fscore = get_optimal_threshold(result_prob, dataset.true_test_links, max_threshold=2.0)
+
+        try:
+            params['threshold'] = optimal_threshold
+            result = pd.MultiIndex.from_tuples([(e1, e2) for (e1, e2, d) in result_prob if d <= optimal_threshold])
+            log_quality_results(logger, result, dataset.true_test_links, len(dataset.test_links), params)
+        except Exception as e:
+            logger.info("Zero Reults")
+            logger.error(e)
+
+        #Log MAP, MRR and Hits@K
+        ir_metrics = InformationRetrievalMetrics(result_prob, dataset.true_test_links)
+        nowt_precison_at_1 = ir_metrics.log_metrics(logger, params)
         werl.close_tf_session()
+
+        return (max_fscore, precison_at_1)
 
     def get_default_params(self):
         return {'learning_rate': 0.1, 'margin': 0.1, 'dimension': 32, 'epochs': 1000,
@@ -131,3 +157,45 @@ class TestWERL(unittest.TestCase):
     def test_census(self):
         self._test_werl(Census, ['Noms_harmo', 'cognom_1', 'cohort', 'estat_civil',
                     'parentesc_har', 'ocupacio_hisco'], self.get_default_params())
+
+    def _test_grid_search(self, dataset, columns):
+        dimension= [16, 32, 64]
+        batchSize= [32, 64]
+        learning_rate= [0.1]
+        margin= [1, 0.1]
+        regularizer_scale = [0.1]
+        epochs = [50, 100, 500]
+        neg_rate = [7]
+        neg_rel_rate = [1]
+        count = 0
+        max_fscore = 0
+        max_prec_at_1 = 0
+
+        model = dataset()
+        logger = get_logger('RL.Test.GridSearch.WERL.' + str(model))
+
+        for d, bs, lr, m, reg, e, nr, nrr in itertools.product(dimension, batchSize,
+                learning_rate, margin, regularizer_scale, epochs, neg_rate, neg_rel_rate):
+            params = {'learning_rate': lr, 'margin': m, 'dimension': d, 'epochs': e, 'batchSize' : bs,
+                        'regularizer_scale' : reg, 'neg_rate' : nr, 'neg_rel_rate': nrr}
+            logger.info("\nTest:%d, PARAMS: %s", count, str(params))
+            count = count + 1
+            cur_fscore, cur_prec_at_1 = self._test_werl(dataset, columns, params)
+            if max_fscore <= cur_fscore:
+                max_fscore = cur_fscore
+            if max_prec_at_1 <= cur_prec_at_1:
+                max_prec_at_1 = cur_prec_at_1
+            logger.info("Ran total %d Tests.", count)
+            logger.info("Max Fscore: %f", max_fscore)
+            logger.info("Max Mean Precision@1: %f", max_prec_at_1)
+
+    def test_grid_search_cora(self):
+        self._test_grid_search(Cora, ['title', 'author', 'publisher', 'date',
+                        'pages', 'volume', 'journal', 'address'])
+
+    def test_grid_search_febrl(self):
+        self._test_grid_search(FEBRL, ['surname', 'state', 'date_of_birth', 'postcode'])
+
+    def test_grid_search_census(self):
+        self._test_grid_search(Census, ['Noms_harmo', 'cognom_1', 'cohort', 'estat_civil',
+                    'parentesc_har', 'ocupacio_hisco'])

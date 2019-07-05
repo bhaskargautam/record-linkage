@@ -220,6 +220,28 @@ class WERL(object):
             accuracy = accuracy / len(batch_starts)
         return (predict, accuracy)
 
+    def test_without_weight(self):
+        #Remove last partial batch if any
+        last_index = self.test_records.shape[0] - (self.test_records.shape[0]%self.batchSize)
+        self.test_records = self.test_records[0:last_index]
+        self.test_truth = self.test_truth[0:last_index]
+        logger.info("Shape of test_records %s", str(self.test_records.shape))
+
+        with self.sess.as_default():
+            self.sess.run(tf.local_variables_initializer())
+            self.sess.run(tf.global_variables_initializer())
+            logger.info("Testing without using the WERL weights:")
+            predict = [sum([(abs(a[i] - b[i])) for i in range(len(a))])/len(a)
+                    for (a, b) in self.test_records]
+            predict = [np.mean(p) for p in predict]
+            accuracy = [1 if self.test_truth[i] == (predict[i] <= 0.5) else 0 for i in range(len(self.test_truth))]
+            accuracy = sum(accuracy) / float(len(self.test_truth))
+            logger.info("Accuracy %.2f", accuracy)
+
+            predict = [(self.dataset.test_links[i][0], self.dataset.test_links[i][1],
+                                predict[i]) for i in range(len(predict))]
+            return (predict, accuracy)
+
     def get_col_weights(self):
         with self.sess.as_default():
             return tf.nn.embedding_lookup(self.weights, range(0, len(self.columns))).eval()
