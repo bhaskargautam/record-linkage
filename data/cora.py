@@ -596,7 +596,7 @@ class Cora(object):
                             triples.append((val_index_a, val_index_b, rel_index))
 
 
-        logger.info("Number of Values: %d", str([len(relation_value_map[r]) for r in relation]))
+        logger.info("Number of Values: %s", str([len(relation_value_map[r]) for r in relation]))
         logger.info("Number of relations: %d", len(relation))
         logger.info("Number of Train Triples: %d", len(train_triples))
         logger.info("Number of Val Triples: %d", len(val_triples))
