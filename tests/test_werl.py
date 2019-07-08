@@ -20,69 +20,85 @@ from data.febrl import FEBRL
 from data.census import Census
 from ER.model import Graph_ER
 from ER.transe import TransE
+from ER.transh import TransH
+from VEG.model import Graph_VEG
+from VEG.rltranse import RLTransE
 from werl import WERL
+from veer import VEER
 from scipy import spatial
 
 class TestWERL(unittest.TestCase):
 
-    def _get_embedding(self, ent_embeddings, columns, graph,
-                dataA, dataB, candidate_pairs, true_pairs):
-        logger = get_logger('RL.Test.WERL.GET_EMBEDDING.')
-
-        embeddingA = []
-        embeddingB = []
-        truth = []
-        zero_embedding = [0] * len(ent_embeddings[0])
-        missing_vals = 0
-        for (a, b) in candidate_pairs:
-            row_a = dataA.loc[a]
-            row_b = dataB.loc[b]
-
-            embedA = []
-            embedB = []
-            for c in columns:
-                try:
-                    embedA.append(ent_embeddings[graph.entity.index(row_a[c])])
-                except ValueError:
-                    embedA.append(zero_embedding)
-                    missing_vals = missing_vals + 1
-                try:
-                    embedB.append(ent_embeddings[graph.entity.index(row_b[c])])
-                except ValueError:
-                    embedB.append(zero_embedding)
-                    missing_vals = missing_vals + 1
-
-            embeddingA.append(embedA)
-            embeddingB.append(embedB)
-            truth.append((a, b) in true_pairs)
-
-        logger.info("Size of embeddingA: %d, %d", len(embeddingA), len(embeddingA[0]))
-        logger.info("Size of embeddingB: %d, %d", len(embeddingB), len(embeddingB[0]))
-        logger.info("No. of missing_vals: %d", missing_vals)
-        return (embeddingA, embeddingB, truth)
-
     def _test_werl(self, model, columns, params):
         #Load Graph Data
         dataset = model()
-        graph = Graph_ER(model)
         logger = get_logger('RL.Test.WERL.' + str(dataset))
 
-        #Train TransE embedding vectors
-        transe = TransE(graph, dimension=params['dimension'],
+        if params['ea_method'] in [TransE, TransH]:
+            #ER methods
+            graph = Graph_ER(model)
+            #Train TransE embedding vectors
+            transe = params['ea_method'](graph,
+                            dimension=params['dimension'],
+                            learning_rate=params['learning_rate'],
+                            margin=params['margin'],
+                            regularizer_scale=params['regularizer_scale'],
+                            batchSize=params['batchSize'],
+                            neg_rate=params['neg_rate'],
+                            neg_rel_rate=params['neg_rel_rate'])
+            loss = transe.train(max_epochs=params['epochs'])
+            logger.info("Training Complete with loss: %f", loss)
+
+            ent_embeddings = transe.get_ent_embeddings()
+            entity = graph.entity
+            transe.close_tf_session()
+        elif params['ea_method'] in [RLTransE]:
+            #VEG methods
+            graph = Graph_VEG(model)
+            #Train TransE embedding vectors
+            rltranse = params['ea_method'](graph,
+                            dimension=params['dimension'],
+                            learning_rate=params['learning_rate'],
+                            margin=params['margin'],
+                            regularizer_scale=params['regularizer_scale'],
+                            batchSize=params['batchSize'],
+                            neg_rate=params['neg_rate'],
+                            neg_rel_rate=params['neg_rel_rate'])
+            loss, val_loss = rltranse.train(max_epochs=params['epochs'])
+            logger.info("Training Complete with loss: %f", loss)
+
+            val_embeddings = rltranse.get_val_embeddings()
+            ent_embeddings = []
+            entity = []
+
+            for r in graph.relation_value_map:
+                for v in graph.relation_value_map[r]:
+                    entity.append(v)
+
+            for rel in val_embeddings:
+                val_count = len(graph.relation_value_map[rel])
+                ent_embeddings.extend(val_embeddings[rel][:val_count])
+
+            rltranse.close_tf_session()
+        elif params['ea_method'] in [VEER]:
+            veer = VEER(model, columns, dimension=params['dimension'],
                         learning_rate=params['learning_rate'],
                         margin=params['margin'],
                         regularizer_scale=params['regularizer_scale'],
-                        batchSize=params['batchSize'],
-                        neg_rate=params['neg_rate'],
-                        neg_rel_rate=params['neg_rel_rate'])
-        loss = transe.train(max_epochs=params['epochs'])
-        logger.info("Training Complete with loss: %f", loss)
+                        batchSize=params['batchSize'])
 
-        ent_embeddings = transe.get_ent_embeddings()
-        transe.close_tf_session()
+            #Train Model
+            loss, val_loss = veer.train(max_epochs=params['epochs'])
+            logger.info("Training Complete with loss: %f, val_loss:%f", loss, val_loss)
+
+            ent_embeddings = veer.get_val_embeddings()
+            entity = veer.get_values()
+            veer.close_tf_session()
+        else:
+            raise Exception("Unknown Entity Alignment method")
 
         #Train WERL weights
-        werl = WERL(model, columns, graph.entity, ent_embeddings,
+        werl = WERL(model, columns, entity, ent_embeddings,
                         dimension=params['dimension'],
                         learning_rate=params['learning_rate'],
                         margin=params['margin'],
@@ -114,8 +130,8 @@ class TestWERL(unittest.TestCase):
         ir_metrics = InformationRetrievalMetrics(result_prob, dataset.true_test_links)
         precison_at_1 = ir_metrics.log_metrics(logger, params)
 
-        #Test Without Weights
-        logger = get_logger('RL.Test.WERL.NoWT.' + str(dataset))
+        #Test Without Weights = Mean Emebedding for Record Linkage
+        logger = get_logger('RL.Test.MERL.' + str(dataset))
 
         result_prob, accuracy = werl.test_without_weight()
         logger.info("Predict count: %d", len(result_prob))
@@ -144,7 +160,8 @@ class TestWERL(unittest.TestCase):
 
     def get_default_params(self):
         return {'learning_rate': 0.1, 'margin': 0.1, 'dimension': 32, 'epochs': 1000,
-                'regularizer_scale' : 0.1, 'batchSize' : 512, 'neg_rate' : 7, 'neg_rel_rate': 1}
+                'regularizer_scale' : 0.1, 'batchSize' : 512, 'neg_rate' : 7, 'neg_rel_rate': 1,
+                'ea_method' : RLTransE}
 
     def test_cora(self):
         return self._test_werl(Cora, ['title', 'author', 'publisher', 'date',
@@ -167,6 +184,7 @@ class TestWERL(unittest.TestCase):
         epochs = [50, 100, 500]
         neg_rate = [7]
         neg_rel_rate = [1]
+        ea_method = [TransE, TransH]
         count = 0
         max_fscore = 0
         max_prec_at_1 = 0
@@ -174,10 +192,10 @@ class TestWERL(unittest.TestCase):
         model = dataset()
         logger = get_logger('RL.Test.GridSearch.WERL.' + str(model))
 
-        for d, bs, lr, m, reg, e, nr, nrr in itertools.product(dimension, batchSize,
-                learning_rate, margin, regularizer_scale, epochs, neg_rate, neg_rel_rate):
+        for d, bs, lr, m, reg, e, nr, nrr, ea in itertools.product(dimension, batchSize,
+                learning_rate, margin, regularizer_scale, epochs, neg_rate, neg_rel_rate, ea_method):
             params = {'learning_rate': lr, 'margin': m, 'dimension': d, 'epochs': e, 'batchSize' : bs,
-                        'regularizer_scale' : reg, 'neg_rate' : nr, 'neg_rel_rate': nrr}
+                        'regularizer_scale' : reg, 'neg_rate' : nr, 'neg_rel_rate': nrr, 'ea_method' : ea}
             logger.info("\nTest:%d, PARAMS: %s", count, str(params))
             count = count + 1
             cur_fscore, cur_prec_at_1 = self._test_werl(dataset, columns, params)
