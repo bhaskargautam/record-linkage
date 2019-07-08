@@ -329,6 +329,9 @@ class VEER(object):
         with self.sess.as_default():
             return tf.nn.embedding_lookup(self.col_weights, range(0, len(self.columns))).eval()
 
+    def get_values(self):
+        return self.values
+
     def save_model(self, filename):
         with self.sess.as_default():
             self.saver.save(self.sess, filename)
