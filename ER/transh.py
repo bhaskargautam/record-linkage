@@ -108,6 +108,9 @@ class TransH(object):
         self.merged = tf.summary.merge_all()
         self.summary_writer = tf.summary.FileWriter(get_tf_summary_file_path(logger), self.sess.graph)
 
+        #Configure Saver
+        self.saver = tf.train.Saver()
+
     def _calc(self, h, t, r):
         """
             TransE objective function.
@@ -159,6 +162,18 @@ class TransH(object):
     def get_ent_embeddings(self):
         with self.sess.as_default():
             return tf.nn.embedding_lookup(self.ent_embeddings, range(0, len(self.entity))).eval()
+
+    def save_model(self, filename):
+        with self.sess.as_default():
+            self.saver.save(self.sess, filename)
+        logger.info("Saved tf train model with filename: %s", filename)
+        return True
+
+    def restore_model(self, filename):
+        with self.sess.as_default():
+            self.saver.restore(self.sess, filename)
+        logger.info("Restored tf train model from filename: %s", filename)
+        return True
 
     def close_tf_session(self):
         tf.reset_default_graph()
