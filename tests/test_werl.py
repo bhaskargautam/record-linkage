@@ -29,6 +29,9 @@ from scipy import spatial
 
 class TestWERL(unittest.TestCase):
 
+    def _get_tf_model_filename(self, dataset, ea_method):
+        return 'out/werl/' + str(dataset) + "_" + str(ea_method)
+
     def _test_werl(self, model, columns, params):
         #Load Graph Data
         dataset = model()
@@ -46,10 +49,16 @@ class TestWERL(unittest.TestCase):
                             batchSize=params['batchSize'],
                             neg_rate=params['neg_rate'],
                             neg_rel_rate=params['neg_rel_rate'])
-            loss = transe.train(max_epochs=params['epochs'])
-            logger.info("Training Complete with loss: %f", loss)
+            try:
+                transe.restore_model(self._get_tf_model_filename(dataset, transe))
+            except Exception as e:
+                logger.error(e)
+                loss = transe.train(max_epochs=params['epochs'])
+                logger.info("Training Complete with loss: %f", loss)
+                transe.save_model(self._get_tf_model_filename(dataset, transe))
 
             ent_embeddings = transe.get_ent_embeddings()
+            rel_embeddings = None
             entity = graph.entity
             transe.close_tf_session()
         elif params['ea_method'] in [RLTransE]:
@@ -64,20 +73,31 @@ class TestWERL(unittest.TestCase):
                             batchSize=params['batchSize'],
                             neg_rate=params['neg_rate'],
                             neg_rel_rate=params['neg_rel_rate'])
-            loss, val_loss = rltranse.train(max_epochs=params['epochs'])
-            logger.info("Training Complete with loss: %f", loss)
+
+            try:
+                #raise Exception("Reset")
+                rltranse.restore_model(self._get_tf_model_filename(dataset, rltranse))
+            except Exception as e:
+                logger.error(e)
+                loss, val_loss = rltranse.train(max_epochs=params['epochs'])
+                logger.info("Training Complete with loss: %f", loss)
+                rltranse.save_model(self._get_tf_model_filename(dataset, rltranse))
 
             val_embeddings = rltranse.get_val_embeddings()
+            rel_embeddings = rltranse.get_rel_embeddings()
+            if model == Census:
+                #hack: census veg graph has 8 relations. we need only 6
+                #removing same_as and surname2 embedding.
+                rel_embeddings = np.append(rel_embeddings[1:3], rel_embeddings[4:], axis=0)
             ent_embeddings = []
             entity = []
 
-            for r in graph.relation_value_map:
-                for v in graph.relation_value_map[r]:
-                    entity.append(v)
-
             for rel in val_embeddings:
                 val_count = len(graph.relation_value_map[rel])
+                entity.extend(graph.relation_value_map[rel])
                 ent_embeddings.extend(val_embeddings[rel][:val_count])
+
+            assert len(ent_embeddings) == len(entity)
 
             rltranse.close_tf_session()
         elif params['ea_method'] in [VEER]:
@@ -86,20 +106,24 @@ class TestWERL(unittest.TestCase):
                         margin=params['margin'],
                         regularizer_scale=params['regularizer_scale'],
                         batchSize=params['batchSize'])
-
-            #Train Model
-            loss, val_loss = veer.train(max_epochs=params['epochs'])
-            logger.info("Training Complete with loss: %f, val_loss:%f", loss, val_loss)
+            try:
+                veer.restore_model(self._get_tf_model_filename(dataset, veer))
+            except Exception as e:
+                logger.error(e)
+                #Train Model
+                loss, val_loss = veer.train(max_epochs=params['epochs'])
+                logger.info("Training Complete with loss: %f, val_loss:%f", loss, val_loss)
+                veer.save_model(self._get_tf_model_filename(dataset, veer))
 
             ent_embeddings = veer.get_val_embeddings()
+            rel_embeddings = None
             entity = veer.get_values()
             veer.close_tf_session()
         else:
             raise Exception("Unknown Entity Alignment method")
 
         #Train WERL weights
-        werl = WERL(model, columns, entity, ent_embeddings,
-                        dimension=params['dimension'],
+        werl = WERL(model, columns, entity, ent_embeddings, rel_embeddings,
                         learning_rate=params['learning_rate'],
                         margin=params['margin'],
                         regularizer_scale=params['regularizer_scale'],
@@ -126,12 +150,32 @@ class TestWERL(unittest.TestCase):
             logger.info("Zero Reults")
             logger.error(e)
 
+        #Test Model
+        logger = get_logger('RL.Test.MERL.' + str(dataset))
+        result_prob, accuracy = werl.test_merl()
+        logger.info("Predict count: %d", len(result_prob))
+        logger.info("Sample Prob: %s", str([ (c, (a, b) in dataset.true_test_links)
+                                        for (a,b,c) in result_prob[:20]]))
+        logger.info("Column Weights: %s", str(werl.get_col_weights()))
+        logger.info("Accuracy: %s", str(accuracy))
+
+        #Compute Performance measures
+        optimal_threshold, max_fscore = get_optimal_threshold(result_prob, dataset.true_test_links, max_threshold=2.0)
+
+        try:
+            params['threshold'] = optimal_threshold
+            result = pd.MultiIndex.from_tuples([(e1, e2) for (e1, e2, d) in result_prob if d <= optimal_threshold])
+            log_quality_results(logger, result, dataset.true_test_links, len(dataset.test_links), params)
+        except Exception as e:
+            logger.info("Zero Reults")
+            logger.error(e)
+
         #Log MAP, MRR and Hits@K
-        ir_metrics = InformationRetrievalMetrics(result_prob, dataset.true_test_links)
-        precison_at_1 = ir_metrics.log_metrics(logger, params)
+        #ir_metrics = InformationRetrievalMetrics(result_prob, dataset.true_test_links)
+        precison_at_1 = None#ir_metrics.log_metrics(logger, params)
 
         #Test Without Weights = Mean Emebedding for Record Linkage
-        logger = get_logger('RL.Test.MERL.' + str(dataset))
+        logger = get_logger('RL.Test.NoWT.' + str(dataset))
 
         result_prob, accuracy = werl.test_without_weight()
         logger.info("Predict count: %d", len(result_prob))
@@ -152,15 +196,15 @@ class TestWERL(unittest.TestCase):
             logger.error(e)
 
         #Log MAP, MRR and Hits@K
-        ir_metrics = InformationRetrievalMetrics(result_prob, dataset.true_test_links)
-        nowt_precison_at_1 = ir_metrics.log_metrics(logger, params)
+        #ir_metrics = InformationRetrievalMetrics(result_prob, dataset.true_test_links)
+        #nowt_precison_at_1 = ir_metrics.log_metrics(logger, params)
         werl.close_tf_session()
 
         return (max_fscore, precison_at_1)
 
     def get_default_params(self):
-        return {'learning_rate': 0.1, 'margin': 0.1, 'dimension': 32, 'epochs': 1000,
-                'regularizer_scale' : 0.1, 'batchSize' : 512, 'neg_rate' : 7, 'neg_rel_rate': 1,
+        return {'learning_rate': 0.1, 'margin': 10, 'dimension': 128, 'epochs': 50,
+                'regularizer_scale' : 0.1, 'batchSize' : 32, 'neg_rate' : 7, 'neg_rel_rate': 1,
                 'ea_method' : RLTransE}
 
     def test_cora(self):
@@ -168,7 +212,7 @@ class TestWERL(unittest.TestCase):
                         'pages', 'volume', 'journal', 'address'], self.get_default_params())
 
     def test_febrl(self):
-        self._test_werl(FEBRL, ['surname', 'state', 'date_of_birth', 'postcode'],
+        self._test_werl(FEBRL, ['given_name', 'surname', 'state', 'date_of_birth', 'postcode'],
                 self.get_default_params())
 
     def test_census(self):
@@ -212,7 +256,7 @@ class TestWERL(unittest.TestCase):
                         'pages', 'volume', 'journal', 'address'])
 
     def test_grid_search_febrl(self):
-        self._test_grid_search(FEBRL, ['surname', 'state', 'date_of_birth', 'postcode'])
+        self._test_grid_search(FEBRL, ['given_name', 'surname', 'state', 'date_of_birth', 'postcode'])
 
     def test_grid_search_census(self):
         self._test_grid_search(Census, ['Noms_harmo', 'cognom_1', 'cohort', 'estat_civil',
