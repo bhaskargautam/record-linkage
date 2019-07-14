@@ -36,24 +36,25 @@ class TestWERL(unittest.TestCase):
         #Load Graph Data
         dataset = model()
         logger = get_logger('RL.Test.WERL.' + str(dataset))
-
+        ea_params = self.get_optimal_ea_params(model, params['ea_method'])
         if params['ea_method'] in [TransE, TransH]:
             #ER methods
             graph = Graph_ER(model)
             #Train TransE embedding vectors
             transe = params['ea_method'](graph,
-                            dimension=params['dimension'],
-                            learning_rate=params['learning_rate'],
-                            margin=params['margin'],
-                            regularizer_scale=params['regularizer_scale'],
-                            batchSize=params['batchSize'],
-                            neg_rate=params['neg_rate'],
-                            neg_rel_rate=params['neg_rel_rate'])
+                            dimension=ea_params['dimension'],
+                            learning_rate=ea_params['learning_rate'],
+                            margin=ea_params['margin'],
+                            regularizer_scale=ea_params['regularizer_scale'],
+                            batchSize=ea_params['batchSize'],
+                            neg_rate=ea_params['neg_rate'],
+                            neg_rel_rate=ea_params['neg_rel_rate'])
             try:
+                #raise Exception("Reset")
                 transe.restore_model(self._get_tf_model_filename(dataset, transe))
             except Exception as e:
                 logger.error(e)
-                loss = transe.train(max_epochs=params['epochs'])
+                loss = transe.train(max_epochs=ea_params['epochs'])
                 logger.info("Training Complete with loss: %f", loss)
                 transe.save_model(self._get_tf_model_filename(dataset, transe))
 
@@ -66,20 +67,20 @@ class TestWERL(unittest.TestCase):
             graph = Graph_VEG(model)
             #Train TransE embedding vectors
             rltranse = params['ea_method'](graph,
-                            dimension=params['dimension'],
-                            learning_rate=params['learning_rate'],
-                            margin=params['margin'],
-                            regularizer_scale=params['regularizer_scale'],
-                            batchSize=params['batchSize'],
-                            neg_rate=params['neg_rate'],
-                            neg_rel_rate=params['neg_rel_rate'])
+                            dimension=ea_params['dimension'],
+                            learning_rate=ea_params['learning_rate'],
+                            margin=ea_params['margin'],
+                            regularizer_scale=ea_params['regularizer_scale'],
+                            batchSize=ea_params['batchSize'],
+                            neg_rate=ea_params['neg_rate'],
+                            neg_rel_rate=ea_params['neg_rel_rate'])
 
             try:
                 #raise Exception("Reset")
                 rltranse.restore_model(self._get_tf_model_filename(dataset, rltranse))
             except Exception as e:
                 logger.error(e)
-                loss, val_loss = rltranse.train(max_epochs=params['epochs'])
+                loss, val_loss = rltranse.train(max_epochs=ea_params['epochs'])
                 logger.info("Training Complete with loss: %f", loss)
                 rltranse.save_model(self._get_tf_model_filename(dataset, rltranse))
 
@@ -101,17 +102,17 @@ class TestWERL(unittest.TestCase):
 
             rltranse.close_tf_session()
         elif params['ea_method'] in [VEER]:
-            veer = VEER(model, columns, dimension=params['dimension'],
-                        learning_rate=params['learning_rate'],
-                        margin=params['margin'],
-                        regularizer_scale=params['regularizer_scale'],
-                        batchSize=params['batchSize'])
+            veer = VEER(model, columns, dimension=ea_params['dimension'],
+                        learning_rate=ea_params['learning_rate'],
+                        margin=ea_params['margin'],
+                        regularizer_scale=ea_params['regularizer_scale'],
+                        batchSize=ea_params['batchSize'])
             try:
                 veer.restore_model(self._get_tf_model_filename(dataset, veer))
             except Exception as e:
                 logger.error(e)
                 #Train Model
-                loss, val_loss = veer.train(max_epochs=params['epochs'])
+                loss, val_loss = veer.train(max_epochs=ea_params['epochs'])
                 logger.info("Training Complete with loss: %f, val_loss:%f", loss, val_loss)
                 veer.save_model(self._get_tf_model_filename(dataset, veer))
 
@@ -203,9 +204,9 @@ class TestWERL(unittest.TestCase):
         return (max_fscore, precison_at_1)
 
     def get_default_params(self):
-        return {'learning_rate': 0.1, 'margin': 10, 'dimension': 128, 'epochs': 50,
-                'regularizer_scale' : 0.1, 'batchSize' : 32, 'neg_rate' : 7, 'neg_rel_rate': 1,
-                'ea_method' : RLTransE}
+        #Params for WERL method only. For ea_params, check get_optimal_ea_params
+        return {'learning_rate': 0.1, 'margin': 1, 'epochs': 50, 'regularizer_scale' : 0.1,
+                'batchSize' : 64,  'ea_method' : RLTransE}
 
     def test_cora(self):
         return self._test_werl(Cora, ['title', 'author', 'publisher', 'date',
@@ -261,3 +262,60 @@ class TestWERL(unittest.TestCase):
     def test_grid_search_census(self):
         self._test_grid_search(Census, ['Noms_harmo', 'cognom_1', 'cohort', 'estat_civil',
                     'parentesc_har', 'ocupacio_hisco'])
+
+    def get_optimal_ea_params(self, model, ea_method):
+        params = {'learning_rate': 0.1, 'margin': 1, 'dimension': 128 , 'epochs': 1000,
+            'regularizer_scale' : 0.1, 'batchSize' : 32, 'neg_rate' : 7, 'neg_rel_rate': 1}
+        if model == Census:
+            if ea_method in [TransE, TransH]:
+                params['dimension'] = 80
+                params['batchSize'] = 100
+                params['epochs'] = 50
+                if ea_method == TransH:
+                    params['epochs'] = 500
+            elif ea_method == RLTransE:
+                params['dimension'] = 64
+                params['batchSize'] = 64
+                params['epochs'] = 5000
+            elif ea_method == VEER:
+                params['dimension'] = 16
+                params['batchSize'] = 32
+                params['epochs'] = 100
+                params['margin'] = 0.1
+        elif model == FEBRL:
+            if ea_method in [TransE]:
+                params['dimension'] = 80
+                params['batchSize'] = 100
+                params['epochs'] = 500
+            elif ea_method == TransH:
+                params['dimension'] = 64
+                params['batchSize'] = 128
+                params['epochs'] = 1000
+            elif ea_method == RLTransE:
+                params['dimension'] = 128
+                params['batchSize'] = 32
+                params['epochs'] = 5000
+                params['margin'] = 0.1
+            elif ea_method == VEER:
+                params['dimension'] = 16
+                params['batchSize'] = 32
+                params['epochs'] = 50
+        elif model == Cora:
+            if ea_method == TransE:
+                params['dimension'] = 80
+                params['batchSize'] = 100
+                params['epochs'] = 50
+            elif ea_method == TransH:
+                params['dimension'] = 64
+                params['batchSize'] = 128
+                params['epochs'] = 1000
+            elif ea_method == RLTransE:
+                params['dimension'] = 32
+                params['batchSize'] = 32
+                params['epochs'] = 1000
+            elif ea_method == VEER:
+                params['dimension'] = 16
+                params['batchSize'] = 64
+                params['epochs'] = 500
+                params['margin'] = 0.1
+        return params

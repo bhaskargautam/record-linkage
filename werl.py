@@ -78,7 +78,7 @@ class WERL(object):
         self.record_b = tf.placeholder(tf.float32, shape=[self.batchSize, len(columns), self.dimension])
         self.truth_val = tf.placeholder(tf.float32, shape=[self.batchSize, 1])
         self.same_val = tf.placeholder(tf.float32, shape=[self.batchSize, len(columns)])
-        norm_weights = tf.nn.l2_normalize(self.weights)
+        self.norm_weights = tf.nn.l2_normalize(self.weights)
 
         long_val = tf.tile(tf.expand_dims(self.same_val, 2), [1, 1, self.dimension])
         logger.info("long_val %s", str(long_val.shape))
@@ -86,7 +86,7 @@ class WERL(object):
         self.score_merl = tf.reduce_sum(tf.math.multiply(
                         tf.abs(self.record_a - self.record_b + self.rel_embedding),
                         long_val), 2, keepdims=False) / len(self.columns)
-        self.score = tf.matmul(self.score_merl, norm_weights)
+        self.score = tf.matmul(self.score_merl, self.norm_weights)
         self.predict = tf.sigmoid(self.score) #/ len(self.columns))
         self.predict_merl = tf.sigmoid(self.score_merl) #/ len(self.columns))
         _loss = tf.maximum(0.0, self.margin + (self.score * self.truth_val))
