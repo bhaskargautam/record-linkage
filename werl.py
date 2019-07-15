@@ -26,46 +26,21 @@ class WERL(object):
         self.regularizer_scale = regularizer_scale
 
         self.map_ent_to_embedding = {entity[i] : ent_embeddings[i] for i in range(len(entity))}
-        self.zero_vector = [1] * self.dimension
+        self.zero_vector = [0] * self.dimension
+        self.default_vector_a = [1] * self.dimension
+        self.default_vector_b = [-1] * self.dimension
         if rel_embedding is None:
             self.rel_embedding = np.zeros((len(self.columns), self.dimension))
         else:
             self.rel_embedding = rel_embedding
         self.get_embed = (lambda x: self.map_ent_to_embedding[x]
-                                if x in self.map_ent_to_embedding else self.zero_vector)
+                                if x in self.map_ent_to_embedding
+                                else self.zero_vector) #np.random.randn(self.dimension))
 
-        #Colect Train Data
-        self.train_records = [(self.dataset.trainDataA.loc[a], self.dataset.trainDataB.loc[b])
-                                    for (a, b) in self.dataset.candidate_links]
-        self.train_same_val = np.array([[0 if a[c] == b[c] else 1 for c in columns]
-                                for (a, b) in self.train_records])
-        self.train_records = np.array([([self.get_embed(a[c]) for c in columns],
-                                [self.get_embed(b[c]) for c in columns])
-                                for (a, b) in self.train_records])
-        self.train_truth = np.array([1 if cp in self.dataset.true_links else -1
-                                    for cp in self.dataset.candidate_links])
-
-        #Colect Validation Data
-        self.val_records = [(self.dataset.valDataA.loc[a], self.dataset.valDataB.loc[b])
-                                    for (a, b) in self.dataset.val_links]
-        self.val_same_val = np.array([[0 if a[c] == b[c] else 1 for c in columns]
-                                for (a, b) in self.val_records])
-        self.val_records = np.array([([self.get_embed(a[c]) for c in columns],
-                                [self.get_embed(b[c]) for c in columns])
-                                for (a, b) in self.val_records])
-        self.val_truth = np.array([1 if cp in self.dataset.true_val_links else -1
-                                    for cp in self.dataset.val_links])
-
-        #Colect Test Data
-        self.test_records = [(self.dataset.testDataA.loc[a], self.dataset.testDataB.loc[b])
-                                    for (a, b) in self.dataset.test_links]
-        self.test_same_val = np.array([[0 if a[c] == b[c] else 1 for c in columns]
-                                for (a, b) in self.test_records])
-        self.test_records = np.array([([self.get_embed(a[c]) for c in columns],
-                                [self.get_embed(b[c]) for c in columns])
-                                for (a, b) in self.test_records])
-        self.test_truth = np.array([1 if cp in self.dataset.true_test_links else -1
-                                        for cp in self.dataset.test_links])
+        self.get_embed_default = (lambda x, d: self.map_ent_to_embedding[x]
+                                if x in self.map_ent_to_embedding
+                                else d)
+                                #self.zero_vector)
 
         #Define Trainable Weights for each feature
         initializer = tf.contrib.layers.xavier_initializer(uniform = True)
@@ -119,6 +94,36 @@ class WERL(object):
         self.saver = tf.train.Saver()
 
     def train(self, max_epochs=100):
+        #Colect Train Data
+        self.train_records = [(self.dataset.trainDataA.loc[a], self.dataset.trainDataB.loc[b])
+                                    for (a, b) in self.dataset.candidate_links]
+        self.train_same_val = np.array([[0 if a[c] == b[c] else 1 for c in self.columns]
+                                for (a, b) in self.train_records])
+        """
+        self.train_records = np.array([(
+                                [self.get_embed_default(a[c], self.default_vector_a)
+                                            for c in columns],
+                                [self.get_embed_default(b[c], self.default_vector_b)
+                                            for c in columns])
+                                    for (a, b) in self.train_records])
+        """
+        self.train_records = np.array([([self.get_embed(a[c]) for c in self.columns],
+                                [self.get_embed(b[c]) for c in self.columns])
+                                for (a, b) in self.train_records])
+        self.train_truth = np.array([1 if cp in self.dataset.true_links else -1
+                                    for cp in self.dataset.candidate_links])
+
+        #Colect Validation Data
+        self.val_records = [(self.dataset.valDataA.loc[a], self.dataset.valDataB.loc[b])
+                                    for (a, b) in self.dataset.val_links]
+        self.val_same_val = np.array([[0 if a[c] == b[c] else 1 for c in self.columns]
+                                for (a, b) in self.val_records])
+        self.val_records = np.array([([self.get_embed(a[c]) for c in self.columns],
+                                [self.get_embed(b[c]) for c in self.columns])
+                                for (a, b) in self.val_records])
+        self.val_truth = np.array([1 if cp in self.dataset.true_val_links else -1
+                                    for cp in self.dataset.val_links])
+
         #Remove last partial batch if any
         last_index = self.train_records.shape[0] - (self.train_records.shape[0]%self.batchSize)
         self.train_records = self.train_records[0:last_index]
@@ -210,7 +215,32 @@ class WERL(object):
                     break
         return (loss, val_loss)
 
-    def test(self):
+    def test(self, dataA=None, dataB=None, test_links=None, test_truth=None, columns=None):
+        if dataA is None:
+            dataA = self.dataset.testDataA
+        if dataB is None:
+            dataB = self.dataset.testDataB
+        if test_links is None:
+            test_links = self.dataset.test_links
+        if test_truth is None:
+            test_truth = self.dataset.true_test_links
+        if columns is None:
+            columns = self.columns
+
+        assert len(columns) == len(self.columns)
+
+        #Colect Test Data
+        self.test_records = [(dataA.loc[a], dataB.loc[b])
+                                    for (a, b) in test_links]
+        self.test_same_val = np.array([[0 if a[c] == b[c] else 1 for c in columns]
+                                for (a, b) in self.test_records])
+        self.test_records = np.array([([self.get_embed(a[c]) for c in columns],
+                                [self.get_embed(b[c]) for c in columns])
+                                for (a, b) in self.test_records])
+        self.test_truth = np.array([1 if cp in test_truth else -1
+                                        for cp in test_links])
+
+
         #Remove last partial batch if any
         last_index = self.test_records.shape[0] - (self.test_records.shape[0]%self.batchSize)
         self.test_records = self.test_records[0:last_index]
@@ -237,13 +267,37 @@ class WERL(object):
                 predict.extend([float(p) for p in list(cur_predict)])
                 accuracy = accuracy + cur_accuracy
 
-            predict = [(self.dataset.test_links[i][0], self.dataset.test_links[i][1],
-                            predict[i]) for i in range(len(predict))]
+            predict = [(test_links[i][0], test_links[i][1], predict[i])
+                            for i in range(len(predict))]
 
             accuracy = accuracy / len(batch_starts)
         return (predict, accuracy)
 
-    def test_merl(self):
+    def test_merl(self, dataA=None, dataB=None, test_links=None, test_truth=None, columns=None):
+        if dataA is None:
+            dataA = self.dataset.testDataA
+        if dataB is None:
+            dataB = self.dataset.testDataB
+        if test_links is None:
+            test_links = self.dataset.test_links
+        if test_truth is None:
+            test_truth = self.dataset.true_test_links
+        if columns is None:
+            columns = self.columns
+
+        assert len(columns) == len(self.columns)
+
+        #Colect Test Data
+        self.test_records = [(dataA.loc[a], dataB.loc[b])
+                                    for (a, b) in test_links]
+        self.test_same_val = np.array([[0 if a[c] == b[c] else 1 for c in columns]
+                                for (a, b) in self.test_records])
+        self.test_records = np.array([([self.get_embed(a[c]) for c in columns],
+                                [self.get_embed(b[c]) for c in columns])
+                                for (a, b) in self.test_records])
+        self.test_truth = np.array([1 if cp in test_truth else -1
+                                        for cp in test_links])
+
         #Remove last partial batch if any
         last_index = self.test_records.shape[0] - (self.test_records.shape[0]%self.batchSize)
         self.test_records = self.test_records[0:last_index]
@@ -271,8 +325,8 @@ class WERL(object):
                 predict.extend([float(sum(p)/len(p)) for p in list(cur_predict)])
                 accuracy = accuracy + cur_accuracy
 
-            predict = [(self.dataset.test_links[i][0], self.dataset.test_links[i][1],
-                            predict[i]) for i in range(len(predict))]
+            predict = [(test_links[i][0], test_links[i][1], predict[i])
+                            for i in range(len(predict))]
 
             accuracy = accuracy / len(batch_starts)
         return (predict, accuracy)
